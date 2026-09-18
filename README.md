@@ -23,6 +23,8 @@ reproduction notes.
 ## Contents
 
 ```
+config/                   run configs + job-level run records
+script/                   parse_full.py — turns raw trials into CSV
 logs/
 ├── README.md              full documentation
 ├── baseline89*.log        Harbor summary table per run
@@ -33,6 +35,17 @@ logs/
 ```
 
 Agent logs are gzipped — read with `gzip -dc <file> | head -50`.
+
+Reproduce the runs from `config/`, then parse them with `script/parse_full.py`:
+
+```bash
+harbor run --config config/baseline89-terminus2.json
+python3 script/parse_full.py results/baseline89-* -o baseline_4harness.csv
+```
+
+See [`config/README.md`](config/README.md) for the provider-prefix and credential
+differences between harnesses — opencode needs different handling from the other
+three.
 
 One file is omitted: `pi`'s `caffe-cifar-10` log is 1.8 GB raw / 177 MB gzipped,
 above GitHub's 100 MB limit. Head and tail samples are committed in its place —

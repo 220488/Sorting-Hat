@@ -1,0 +1,350 @@
+[?2004hroot@742a9e52a3a6:/app# asciinema rec --stdin /logs/agent/recording.cast
+[?2004l[0;32masciinema: recording asciicast to /logs/agent/recording.cast[0m
+[0;32masciinema: press <ctrl-d> or type "exit" when you're done[0m
+[?2004hroot@742a9e52a3a6:/app# clear
+[?2004l[H[J[3J[?2004hroot@742a9e52a3a6:/app# mkdir -p /app
+[?2004l[?2004hroot@742a9e52a3a6:/app# cat > /app/run.py << 'EOF'
+[?2004l[?2004h> import asyncio
+[?2004l[?2004h> import signal
+[?2004l[?2004h> from typing import Callable, Awaitable
+[?2004l[?2004h> 
+[?2004l[?2004h> class GracefulInterruptHandler:
+[?2004l[?2004h>     def __init__(self):
+[?2004l[?2004h>         self.interrupted = False
+[?2004l[?2004h>         self.orig_sigint = signal.signal(signal.SIGINT, self._handler)
+[?2004l[?2004h>         self.orig_sigterm = signal.signal(signal.SIGTERM, self._handler)
+[?2004l[?2004h>     
+[?2004l[?2004h>     def _handler(self, signum, frame):
+[?2004l[?2004h>         self.interrupted = True
+[?2004l[?2004h>     
+[?2004l[?2004h>     def __enter__(self):
+[?2004l[?2004h>         return self
+[?2004l[?2004h>     
+[?2004l[?2004h>     def __exit__(self, type, value, traceback):
+[?2004l[?2004h>         signal.signal(signal.SIGINT, self.orig_sigint)
+[?2004l[?2004h>         signal.signal(signal.SIGTERM, self.orig_sigterm)
+[?2004l[?2004h> 
+[?2004l[?2004h> def safe_gather(tasks, semaphore):
+[?2004l[?2004h>     async def _wrap(task):
+[?2004l[?2004h>         async with semaphore:
+[?2004l[?2004h>             try:
+[?2004l[?2004h>                 await task()
+[?2004l[?2004h>             except Exception as e:
+[?2004l[?2004h>                 print(f"Task failed: {e}")
+[?2004l[?2004h>     return await asyncio.gather(*[_wrap(task) for task in tasks], return_exceptions=True)
+[?2004l[?2004h> 
+[?2004l[?2004h> async def run_tasks(tasks: list[Callable[[], Awaitable[None]]], max_concurrent: int) -> None:
+[?2004l[?2004h>     if not tasks:
+[?2004l[?2004h>         return
+[?2004l[?2004h>     
+[?2004l[?2004h>     semaphore = asyncio.Semaphore(max_concurrent)
+[?2004l[?2004h>     
+[?2004l[?2004h>     with GracefulInterruptHandler() as handler:
+[?2004l[?2004h>         # Start all tasks
+[?2004l[?2004h>         wrapped_tasks = []
+[?2004l[?2004h>         for task in tasks:
+[?2004l[?2004h>             async def _wrap(t=task):  # Capture task in closure
+[?2004l[?2004h>                 async with semaphore:
+[?2004l[?2004h>                     if not handler.interrupted:
+[?2004l[?2004h>                         try:
+[?2004l[?2004h>                             await t()
+[?2004l[?2004h>                         except Exception as e:
+[?2004l[?2004h>                             print(f"Task failed: {e}")
+[?2004l[?2004h>             wrapped_tasks.append(_wrap())
+[?2004l[?2004h>         
+[?2004l[?2004h>         # Run until completion or interruption
+[?2004l[?2004h>         try:
+[?2004l[?2004h>             await asyncio.gather(*wrapped_tasks, return_exceptions=True)
+[?2004l[?2004h>         except Exception:
+[?2004l[?2004h>             pass  # Handle exceptions gracefully
+[?2004l[?2004h>         finally:
+[?2004l[?2004h>             # Allow remaining tasks to finish their cleanup
+[?2004l[?2004h>             if handler.interrupted:
+[?2004l[?2004h>                 print("Received interrupt signal, allowing tasks to clean up...")
+[?2004l[?2004h>                 # Give tasks a chance to clean up
+[?2004l[?2004h>                 await asyncio.sleep(0.1)
+[?2004l[?2004h> EOF
+[?2004l[?2004hroot@742a9e52a3a6:/app# cat > /app/run.py << 'EOF'
+[?2004l            print(f"Task failed: {e}")
+    
+    with GracefulInterruptHandler() as handler:
+        # Create task coroutines
+        task_coroutines = [run_task_with_semaphore(task) for task in tasks]
+        
+        # Run until completion or interruption
+        try:
+            await asyncio.gather(*task_coroutines, return_exceptions=True)
+        except Exception:
+            pass  # Handle exceptions gracefully
+        finally:
+            # Allow remaining tasks to finish their cleanup
+            if handler.interrupted:
+                print("Received interrupt signal, allowing tasks to clean up...")
+                # Give tasks a chance to clean up
+                pending_tasks = [t for t in asyncio.all_tasks() if not t.done()]
+                if pending_tasks:
+                    await asyncio.wait(pending_tasks, timeout=1.0)
+EOF
+[?2004h> import asyncio
+[?2004l[?2004h> import signal
+[?2004l[?2004h> from typing import Callable, Awaitable
+[?2004l[?2004h> 
+[?2004l[?2004h> class GracefulInterruptHandler:
+[?2004l[?2004h>     def __init__(self):
+[?2004l[?2004h>         self.interrupted = False
+[?2004l[?2004h>         self.orig_sigint = signal.signal(signal.SIGINT, self._handler)
+[?2004l[?2004h>         self.orig_sigterm = signal.signal(signal.SIGTERM, self._handler)
+[?2004l[?2004h>     
+[?2004l[?2004h>     def _handler(self, signum, frame):
+[?2004l[?2004h>         self.interrupted = True
+[?2004l[?2004h>     
+[?2004l[?2004h>     def __enter__(self):
+[?2004l[?2004h>         return self
+[?2004l[?2004h>     
+[?2004l[?2004h>     def __exit__(self, type, value, traceback):
+[?2004l[?2004h>         signal.signal(signal.SIGINT, self.orig_sigint)
+[?2004l[?2004h>         signal.signal(signal.SIGTERM, self.orig_sigterm)
+[?2004l[?2004h> 
+[?2004l[?2004h> async def run_tasks(tasks: list[Callable[[], Awaitable[None]]], max_concurrent: int) -> None:
+[?2004l[?2004h>     if not tasks:
+[?2004l[?2004h>         return
+[?2004l[?2004h>     
+[?2004l[?2004h>     semaphore = asyncio.Semaphore(max_concurrent)
+[?2004l[?2004h>     
+[?2004l[?2004h>     async def run_task_with_semaphore(task):
+[?2004l[?2004h>         async with semaphore:
+[?2004l[?2004h>             if not handler.interrupted:
+[?2004l[?2004h>                 try:
+[?2004l[?2004h>                     await task()
+[?2004l[?2004h>                 except Exception as e:
+[?2004l[?2004h>                     print(f"Task failed: {e}")
+[?2004l[?2004h>     
+[?2004l[?2004h>     with GracefulInterruptHandler() as handler:
+[?2004l[?2004h>         # Create task coroutines
+[?2004l[?2004h>         task_coroutines = [run_task_with_semaphore(task) for task in tasks]
+[?2004l[?2004h>         
+[?2004l[?2004h>         # Run until completion or interruption
+[?2004l[?2004h>         try:
+[?2004l[?2004h>             await asyncio.gather(*task_coroutines, return_exceptions=True)
+[?2004l[?2004h>         except Exception:
+[?2004l[?2004h>             pass  # Handle exceptions gracefully
+[?2004l[?2004h>         finally:
+[?2004l[?2004h>             # Allow remaining tasks to finish their cleanup
+[?2004l[?2004h>             if handler.interrupted:
+[?2004l[?2004h>                 print("Received interrupt signal, allowing tasks to clean up...")
+[?2004l[?2004h>                 # Give tasks a chance to clean up
+[?2004l[?2004h>                 pending_tasks = [t for t in asyncio.all_tasks() if not t.done()]
+[?2004l[?2004h>                 if pending_tasks:
+[?2004l[?2004h>                     await asyncio.wait(pending_tasks, timeout=1.0)
+[?2004l[?2004h> EOF
+[?2004l[?2004hroot@742a9e52a3a6:/app# cat > /app/run.py << 'EOF'
+[?2004l[?2004h> import asyncio
+[?2004l[?2004h> import signal
+[?2004l[?2004h> from typing import Callable, Awaitable
+[?2004l[?2004h> 
+[?2004l[?2004h> class GracefulInterruptHandler:
+[?2004l[?2004h>     def __init__(self):
+[?2004l[?2004h>         self.interrupted = False
+[?2004l[?2004h>         self.orig_sigint = signal.signal(signal.SIGINT, self._handler)
+[?2004l[?2004h>         self.orig_sigterm = signal.signal(signal.SIGTERM, self._handler)
+[?2004l[?2004h>     
+[?2004l[?2004h>     def _handler(self, signum, frame):
+[?2004l[?2004h>         self.interrupted = True
+[?2004l[?2004h>     
+[?2004l[?2004h>     def __enter__(self):
+[?2004l[?2004h>         return self
+[?2004l[?2004h>     
+[?2004l[?2004h>     def __exit__(self, type, value, traceback):
+[?2004l[?2004h>         signal.signal(signal.SIGINT, self.orig_sigint)
+[?2004l[?2004h>         signal.signal(signal.SIGTERM, self.orig_sigterm)
+[?2004l[?2004h> 
+[?2004l[?2004h> async def run_tasks(tasks: list[Callable[[], Awaitable[None]]], max_concurrent: int) -> None:
+[?2004l[?2004h>     if not tasks:
+[?2004l[?2004h>         return
+[?2004l[?2004h>     
+[?2004l[?2004h>     # Create semaphore to limit concurrent tasks
+[?2004l[?2004h>     semaphore = asyncio.Semaphore(max_concurrent)
+[?2004l[?2004h>     
+[?2004l[?2004h>     async def run_single_task(task, interrupt_handler):
+[?2004l[?2004h>         async with semaphore:
+[?2004l[?2004h>             # Check if we were interrupted before starting
+[?2004l[?2004h>             if interrupt_handler.interrupted:
+[?2004l[?2004h>                 return
+[?2004l[?2004h>             try:
+[?2004l[?2004h>                 await task()
+[?2004l[?2004h>             except Exception as e:
+[?2004l[?2004h>                 print(f"Task failed: {e}")
+[?2004l[?2004h>     
+[?2004l[?2004h>     # Set up interrupt handling
+[?2004l[?2004h>     with GracefulInterruptHandler() as handler:
+[?2004l[?2004h>         # Create all task coroutines
+[?2004l[?2004h>         task_coroutines = [run_single_task(task, handler) for task in tasks]
+[?2004l[?2004h>         
+[?2004l[?2004h>         try:
+[?2004l[?2004h>             # Run all tasks concurrently
+[?2004l[?2004h>             await asyncio.gather(*task_coroutines, return_exceptions=True)
+[?2004l[?2004h>         except Exception:
+[?2004l[?2004h>             pass  # Handle exceptions gracefully
+[?2004l[?2004h>         finally:
+[?2004l[?2004h>             # If interrupted, give tasks a moment to clean up
+[?2004l[?2004h>             if handler.interrupted:
+[?2004l[?2004h>                 print("Received interrupt signal, allowing tasks to clean up...")
+[?2004l[?2004h>                 # Small delay to let cleanup code run
+[?2004l[?2004h>                 await asyncio.sleep(0.1)
+[?2004l[?2004h> EOF
+[?2004l[?2004hroot@742a9e52a3a6:/app# cat /app/run.py
+[?2004limport asyncio
+import signal
+from typing import Callable, Awaitable
+
+class GracefulInterruptHandler:
+    def __init__(self):
+        self.interrupted = False
+        self.orig_sigint = signal.signal(signal.SIGINT, self._handler)
+        self.orig_sigterm = signal.signal(signal.SIGTERM, self._handler)
+    
+    def _handler(self, signum, frame):
+        self.interrupted = True
+    
+    def __enter__(self):
+        return self
+    
+    def __exit__(self, type, value, traceback):
+        signal.signal(signal.SIGINT, self.orig_sigint)
+        signal.signal(signal.SIGTERM, self.orig_sigterm)
+
+async def run_tasks(tasks: list[Callable[[], Awaitable[None]]], max_concurrent: int) -> None:
+    if not tasks:
+        return
+    
+    # Create semaphore to limit concurrent tasks
+    semaphore = asyncio.Semaphore(max_concurrent)
+    
+    async def run_single_task(task, interrupt_handler):
+        async with semaphore:
+            # Check if we were interrupted before starting
+            if interrupt_handler.interrupted:
+                return
+            try:
+                await task()
+            except Exception as e:
+                print(f"Task failed: {e}")
+    
+    # Set up interrupt handling
+    with GracefulInterruptHandler() as handler:
+        # Create all task coroutines
+        task_coroutines = [run_single_task(task, handler) for task in tasks]
+        
+        try:
+            # Run all tasks concurrently
+            await asyncio.gather(*task_coroutines, return_exceptions=True)
+        except Exception:
+            pass  # Handle exceptions gracefully
+        finally:
+            # If interrupted, give tasks a moment to clean up
+            if handler.interrupted:
+                print("Received interrupt signal, allowing tasks to clean up...")
+                # Small delay to let cleanup code run
+                await asyncio.sleep(0.1)
+[?2004hroot@742a9e52a3a6:/app# cat > /app/test_run.py << 'EOF'
+[?2004l[?2004h> #!/usr/bin/env python3
+[?2004l[?2004h> import asyncio
+[?2004l[?2004h> import time
+[?2004l[?2004h> from run import run_tasks
+[?2004l[?2004h> 
+[?2004l[?2004h> async def example_task(task_id, duration):
+[?2004l[?2004h>     print(f"Task {task_id} starting")
+[?2004l[?2004h>     try:
+[?2004l[?2004h>         await asyncio.sleep(duration)
+[?2004l[?2004h>         print(f"Task {task_id} completed")
+[?2004l[?2004h>     except asyncio.CancelledError:
+[?2004l[?2004h>         print(f"Task {task_id} was cancelled but cleaning up...")
+[?2004l[?2004h>         await asyncio.sleep(0.1)  # Simulate cleanup
+[?2004l[?2004h>         print(f"Task {task_id} cleaned up")
+[?2004l[?2004h>         raise
+[?2004l[?2004h> 
+[?2004l[?2004h> async def main():
+[?2004l[?2004h>     # Create a list of example tasks with different durations
+[?2004l[?2004h>     tasks = [
+[?2004l[?2004h>         lambda: example_task(1, 1),
+[?2004l[?2004h>         lambda: example_task(2, 2),
+[?2004l[?2004h>         lambda: example_task(3, 1),
+[?2004l[?2004h>         lambda: example_task(4, 3),
+[?2004l[?2004h>         lambda: example_task(5, 1),
+[?2004l[?2004h>     ]
+[?2004l[?2004h>     
+[?2004l[?2004h>     print("Running tasks with max_concurrent=2")
+[?2004l[?2004h>     start_time = time.time()
+[?2004l[?2004h>     await run_tasks(tasks, max_concurrent=2)
+[?2004l[?2004h>     end_time = time.time()
+[?2004l[?2004h>     print(f"All tasks completed in {end_time - start_time:.2f} seconds")
+[?2004l[?2004h> 
+[?2004l[?2004h> if __name__ == "__main__":
+[?2004l[?2004h>     asyncio.run(main())
+[?2004l[?2004h> EOF
+[?2004l[?2004hroot@742a9e52a3a6:/app# chmod +x /app/test_run.py
+[?2004l[?2004hroot@742a9e52a3a6:/app# python3 /app/test_run.py
+[?2004lRunning tasks with max_concurrent=2
+Task 1 starting
+Task 2 starting
+Task 1 completed
+Task 3 starting
+Task 2 completed
+Task 4 starting
+Task 3 completed
+Task 5 starting
+Task 5 completed
+Task 4 completed
+All tasks completed in 5.00 seconds
+[?2004hroot@742a9e52a3a6:/app# cat > /app/test_interrupt.py << 'EOF'
+[?2004l=2)
+    print("All tasks completed or cancelled and cleaned up.")
+
+if __name__ == "__main__":
+    asyncio.run(main())
+EOF
+[?2004h> #!/usr/bin/env python3
+[?2004l[?2004h> import asyncio
+[?2004l[?2004h> import time
+[?2004l[?2004h> from run import run_tasks
+[?2004l[?2004h> 
+[?2004l[?2004h> async def long_running_task(task_id):
+[?2004l[?2004h>     print(f"Long task {task_id} starting")
+[?2004l[?2004h>     try:
+[?2004l[?2004h>         # Simulate work that can be interrupted
+[?2004l[?2004h>         for i in range(10):
+[?2004l[?2004h>             print(f"Long task {task_id} working step {i+1}/10")
+[?2004l[?2004h>             await asyncio.sleep(1)
+[?2004l[?2004h>         print(f"Long task {task_id} completed")
+[?2004l[?2004h>     except asyncio.CancelledError:
+[?2004l[?2004h>         print(f"Long task {task_id} was cancelled, cleaning up...")
+[?2004l[?2004h>         # Simulate cleanup work that should still run
+[?2004l[?2004h>         await asyncio.sleep(0.5)
+[?2004l[?2004h>         print(f"Long task {task_id} cleaned up properly")
+[?2004l[?2004h>         raise
+[?2004l[?2004h> 
+[?2004l[?2004h> async def main():
+[?2004l[?2004h>     # Create a list of long-running tasks
+[?2004l[?2004h>     tasks = [
+[?2004l[?2004h>         lambda: long_running_task(1),
+[?2004l[?2004h>         lambda: long_running_task(2),
+[?2004l[?2004h>         lambda: long_running_task(3),
+[?2004l[?2004h>     ]
+[?2004l[?2004h>     
+[?2004l[?2004h>     print("Running long tasks with max_concurrent=2. Try pressing Ctrl+C during execution.")
+[?2004l[?2004h>     await run_tasks(tasks, max_concurrent=2)
+[?2004l[?2004h>     print("All tasks completed or cancelled and cleaned up.")
+[?2004l[?2004h> 
+[?2004l[?2004h> if __name__ == "__main__":
+[?2004l[?2004h>     asyncio.run(main())
+[?2004l[?2004h> EOF
+[?2004l[?2004hroot@742a9e52a3a6:/app# chmod +x /app/test_interrupt.py
+[?2004l[?2004hroot@742a9e52a3a6:/app# ls -la /app/
+[?2004ltotal 24
+drwxr-xr-x 1 root root 4096 Sep  7 01:46 .
+drwxr-xr-x 1 root root 4096 Sep  7 01:45 ..
+drwxr-xr-x 2 root root 4096 Sep  7 01:46 __pycache__
+-rw-r--r-- 1 root root 1872 Sep  7 01:46 run.py
+-rwxr-xr-x 1 root root 1104 Sep  7 01:46 test_interrupt.py
+-rwxr-xr-x 1 root root 1021 Sep  7 01:46 test_run.py
+[?2004hroot@742a9e52a3a6:/app# 

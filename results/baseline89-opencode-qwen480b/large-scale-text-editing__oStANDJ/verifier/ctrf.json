@@ -1,0 +1,71 @@
+{
+    "results": {
+        "tool": {
+            "name": "pytest",
+            "version": "8.4.1"
+        },
+        "summary": {
+            "tests": 5,
+            "passed": 3,
+            "failed": 2,
+            "skipped": 0,
+            "pending": 0,
+            "other": 0,
+            "start": 1789616043.3954875,
+            "stop": 1789616054.1205618
+        },
+        "tests": [
+            {
+                "name": "test_outputs.py::test_apply_macros_exists",
+                "status": "passed",
+                "duration": 0.0003939379967050627,
+                "start": 1789616043.466093,
+                "stop": 1789616043.466684,
+                "retries": 0,
+                "file_path": "test_outputs.py"
+            },
+            {
+                "name": "test_outputs.py::test_apply_macros_well_formed",
+                "status": "failed",
+                "raw_status": "call_failed",
+                "duration": 0.0006744029960827902,
+                "start": 1789616043.4668531,
+                "stop": 1789616043.4789836,
+                "retries": 0,
+                "file_path": "test_outputs.py",
+                "trace": "def test_apply_macros_well_formed():\n        \"\"\"\n        Ensure the Vim macros script is well-formed and includes required commands and\n        only valid commands.\n        \"\"\"\n        text = APPLY_SCRIPT.read_text(encoding=\"utf-8\", errors=\"ignore\")\n        # Parse the script content\n        lines = [\n            line.strip()\n            for line in text.split(\"\\n\")\n            if line.strip() and not line.strip().startswith('\"')\n        ]\n        # Any use of :%normal! must be exactly with @a/@b/@c\n        other_normals = re.findall(r\"^\\s*:%normal!\\s+(\\S+)\", text, re.MULTILINE)\n        assert all(tok in (\"@a\", \"@b\", \"@c\") for tok in other_normals), (\n            f\"Only @a/@b/@c may be used with :%normal!, found: {other_normals}\"\n        )\n        # Check for required components\n        has_exit = any(line in (\":wq\", \":x\") for line in lines)\n        # Check for setreg calls for all three registers (flexible quote matching)\n        setreg_a = any(re.search(r\"call setreg\\(['\\\"]a['\\\"],\", line) for line in lines)\n        setreg_b = any(re.search(r\"call setreg\\(['\\\"]b['\\\"],\", line) for line in lines)\n        setreg_c = any(re.search(r\"call setreg\\(['\\\"]c['\\\"],\", line) for line in lines)\n        # Check for macro execution calls for all three registers\n        exec_a = any(\":%normal! @a\" in line for line in lines)\n        exec_b = any(\":%normal! @b\" in line for line in lines)\n        exec_c = any(\":%normal! @c\" in line for line in lines)\n        # Validate required components\n        assert has_exit, \"Missing :wq or :x\"\n>       assert (setreg_a and setreg_b and setreg_c), \"Must define all 3 macros\"\nE       AssertionError: Must define all 3 macros\nE       assert (False)\n\n/tests/test_outputs.py:157: AssertionError",
+                "message": "The test failed in the call phase due to an assertion error"
+            },
+            {
+                "name": "test_outputs.py::test_apply_macros_runs",
+                "status": "passed",
+                "duration": 10.558093814994209,
+                "start": 1789616043.4791567,
+                "stop": 1789616054.0374715,
+                "retries": 0,
+                "file_path": "test_outputs.py"
+            },
+            {
+                "name": "test_outputs.py::test_input_equiv_expected",
+                "status": "passed",
+                "duration": 0.06635963499138597,
+                "start": 1789616054.0377085,
+                "stop": 1789616054.1042929,
+                "retries": 0,
+                "file_path": "test_outputs.py"
+            },
+            {
+                "name": "test_outputs.py::test_macros_nonempty_and_efficient",
+                "status": "failed",
+                "raw_status": "call_failed",
+                "duration": 0.010203816993453074,
+                "start": 1789616054.104551,
+                "stop": 1789616054.1191597,
+                "retries": 0,
+                "file_path": "test_outputs.py",
+                "trace": "def test_macros_nonempty_and_efficient():\n        \"\"\"\n        Verify that macros a, b, and c are non-empty, pairwise distinct, and efficient\n        (total keystrokes < 200).\n        \"\"\"\n        tmp_script = Path(\"/app/_defs_only.vim\")\n        _write_defs_only_script(APPLY_SCRIPT, tmp_script)\n        # Run Vim headlessly to source only the defs and emit counts/contents\n        res = _run([\"vim\", \"-Nu\", \"NONE\", \"-n\", \"-Es\", \"-S\", str(tmp_script)])\n        assert res.returncode == 0, f\"Vim exited with code {res.returncode}\"\n        ks_out = Path(\"/app/vim_keystrokes.out\")\n        regs_out = Path(\"/app/vim_regs.out\")\n        assert ks_out.exists(), \"Expected keystroke output file was not created\"\n        assert regs_out.exists(), \"Expected registers output file was not created\"\n        # Parse keystroke counts\n        line = ks_out.read_text(encoding=\"utf-8\", errors=\"ignore\").strip()\n        m = re.match(r\"^KEYSTROKES a=(\\d+) b=(\\d+) c=(\\d+) total=(\\d+)$\", line)\n        assert m, f\"Could not parse keystrokes line: {line!r}\"\n        a, b, c, total = map(int, m.groups())\n>       assert a > 0 and b > 0 and c > 0, f\"Macros must be non-empty: a={a} b={b} c={c}\"\nE       AssertionError: Macros must be non-empty: a=74 b=11 c=0\nE       assert (74 > 0 and 11 > 0 and 0 > 0)\n\n/tests/test_outputs.py:213: AssertionError",
+                "message": "The test failed in the call phase due to an assertion error"
+            }
+        ]
+    }
+}

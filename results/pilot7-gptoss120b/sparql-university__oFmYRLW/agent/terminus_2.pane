@@ -1,0 +1,370 @@
+[?2004hroot@659d37762bc7:/app# asciinema rec --stdin /logs/agent/recording.cast
+[?2004l[0;32masciinema: recording asciicast to /logs/agent/recording.cast[0m
+[0;32masciinema: press <ctrl-d> or type "exit" when you're done[0m
+[?2004hroot@659d37762bc7:/app# clear
+[?2004l[H[J[3J[?2004hroot@659d37762bc7:/app# head -n 40 /app/university_graph.ttl
+[?2004l@prefix uni: <http://university.org/ontology/> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+# ---------------------------
+# Universities
+# ---------------------------
+uni:ETHZurich a uni:University ;
+    uni:hasName "ETH Zurich" ;
+    uni:locatedInCountry "CH" .
+
+uni:UPM a uni:University ;
+    uni:hasName "Universidad Politécnica de Madrid" ;
+    uni:locatedInCountry "ES" .
+
+uni:IST a uni:University ;
+    uni:hasName "Instituto Superior Técnico" ;
+    uni:locatedInCountry "PT" .
+
+uni:NTUA a uni:University ;
+    uni:hasName "National Technical University of Athens" ;
+    uni:locatedInCountry "GR" .
+
+uni:NKUA a uni:University ;
+    uni:hasName "National and Kapodistrian University of Athens" ;
+    uni:locatedInCountry "GR" .
+
+uni:Sorbonne a uni:University ;
+    uni:hasName "Sorbonne University" ;
+    uni:locatedInCountry "FR" .
+
+uni:MIT a uni:University ;
+    uni:hasName "Massachusetts Institute of Technology" ;
+    uni:locatedInCountry "US" .
+
+uni:Berkeley a uni:University ;
+    uni:hasName "University of California, Berkeley" ;
+    uni:locatedInCountry "US" .
+
+uni:LMU a uni:University ;
+    uni:hasName "Ludwig Maximilian University of Munich" ;
+[?2004hroot@659d37762bc7:/app# cat <<'EOF' > /app/solution.sparql
+[?2004l[?2004h> PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+[?2004l[?2004h> PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+[?2004l[?2004h> PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
+[?2004l[?2004h> PREFIX uni: <http://example.org/university#>
+[?2004l[?2004h> 
+[?2004l[?2004h> # List of EU member state ISO codes as of 2025-08-16
+[?2004l[?2004h> VALUES ?euCountry {
+[?2004l[?2004h>   "AT" "BE" "BG" "HR" "CY" "CZ" "DK" "EE" "FI" "FR"
+[?2004l[?2004h>   "DE" "GR" "HU" "IE" "IT" "LV" "LT" "LU" "MT" "NL"
+[?2004l[?2004h>   "PL" "PT" "RO" "SK" "SI" "ES" "SE" "NL" "EL" "LU"
+[?2004l[?2004h> }
+[?2004l[?2004h> 
+[?2004l[?2004h> SELECT ?professorName (GROUP_CONCAT(DISTINCT ?country; separator=", ") AS ?countries)
+[?2004l[?2004h> WHERE {
+[?2004l[?2004h>   # Identify full professors
+[?2004l[?2004h>   ?professor a uni:FullProfessor .
+[?2004l[?2004h>   ?professor uni:hasName ?professorName .
+[?2004l[?2004h> 
+[?2004l[?2004h>   # Professors work in departments
+[?2004l[?2004h>   ?professor uni:worksIn ?dept .
+[?2004l[?2004h> 
+[?2004l[?2004h>   # Department belongs to a university
+[?2004l[?2004h>   ?dept uni:partOf ?univ .
+[?2004l[?2004h> 
+[?2004l[?2004h>   # University is located in a country (ISO code as string)
+[?2004l[?2004h>   ?univ uni:locatedInCountry ?country .
+[?2004l[?2004h>   FILTER(?country IN (?euCountry))
+[?2004l[?2004h> 
+[?2004l[?2004h>   # Ensure at least one department (could be the same ?dept) has >10 students enrolled in its classes
+[?2004l[?2004h>   {
+[?2004l[?2004h>     SELECT ?dept (COUNT(DISTINCT ?student) AS ?studentCount)
+[?2004l[?2004h>     WHERE {
+[?2004l[?2004h>       ?dept a uni:Department .
+[?2004l[?2004h>       # Classes taught by the department (or by professors in that department)
+[?2004l[?2004h>       ?class uni:taughtBy ?professor .
+[?2004l[?2004h>       ?class uni:belongsToDepartment ?dept .
+[?2004l[?2004h>       # Enrolled students
+[?2004l[?2004h>       ?class uni:hasEnrolledStudent ?student .
+[?2004l[?2004h>     }
+[?2004l[?2004h>     GROUP BY ?dept
+[?2004l[?2004h>     HAVING (?studentCount > 10)
+[?2004l[?2004h>   }
+[?2004l[?2004h> }
+[?2004l[?2004h> GROUP BY ?professorName
+[?2004l[?2004h> EOF
+[?2004l[?2004hroot@659d37762bc7:/app# ls -l /app/solution.sparql
+[?2004l-rw-r--r-- 1 root root 1443 Sep 14 04:28 /app/solution.sparql
+[?2004hroot@659d37762bc7:/app# grep -n -i "Professor" -n /app/university_graph.ttl | head -n 20
+[?2004l109:# Professors 
+114:    uni:role "Professor of Computer Science" ;
+120:    uni:role "Assistant Professor of Computer Science" ;
+126:    uni:role "Professor of Mathematics" ;
+132:    uni:role "Professor of History of Scienceand Technology" ;
+138:    uni:role "Professor of Biology" ;
+144:    uni:role "Professor of Mathematics" ;
+150:    uni:role "Assistant Professor of Engineering" ;
+[?2004hroot@659d37762bc7:/app# sed -n '90,180p' /app/university_graph.ttl
+[?2004l
+uni:Math201 a uni:Course ;
+    uni:isTaughtIn uni:Mathematics_Sorbonne .
+
+uni:Physics301 a uni:Course ;
+    uni:isTaughtIn uni:Physics_ETH .
+
+uni:Bio101 a uni:Course ;
+    uni:isTaughtIn uni:Biology_MIT .
+
+uni:Eng202 a uni:Course ;
+    uni:isTaughtIn uni:Engineering_LMU .
+
+uni:EngUS302 a uni:Course ;
+    uni:isTaughtIn uni:Engineering_Berkeley .
+
+uni:STS101 a uni:Course ;
+    uni:isTaughtIn uni:HistoryAndPhilosophy_NKUA .
+# ---------------------------
+# Professors 
+# ---------------------------
+
+uni:Orfeas_Menis a uni:Person ;
+    uni:hasName "Orfeas Menis" ;
+    uni:role "Professor of Computer Science" ;
+    uni:teaches uni:CS101 ;
+    uni:worksIn uni:ComputerScience_NTUA , uni:Sloan_MIT .
+
+uni:Athanasios_Voulodimos a uni:Person ;
+    uni:hasName "Athanasios Voulodimos" ;
+    uni:role "Assistant Professor of Computer Science" ;
+    uni:teaches uni:CS101 ;
+    uni:worksIn uni:ComputerScience_NTUA .
+
+uni:Pepe_Attanasio a uni:Person ;
+    uni:hasName "Pepe Attanasio" ;
+    uni:role "Professor of Mathematics" ;
+    uni:teaches uni:Math101 , uni:AI101 ;
+    uni:worksIn uni:Mathematics_IST , uni:ComputerScience_NTUA .
+
+uni:Aristotle_Tympas a uni:Person ;
+    uni:hasName "Aristotle Tympas" ;
+    uni:role "Professor of History of Scienceand Technology" ;
+    uni:teaches uni:STS101 ;
+    uni:worksIn uni:HistoryAndPhilosophy_NKUA .
+
+uni:John_Smith a uni:Person ;
+    uni:hasName "John Smith" ;
+    uni:role "Professor of Biology" ;
+    uni:teaches uni:Bio101 ;
+    uni:worksIn uni:Biology_MIT .
+
+uni:Marie_Dubois a uni:Person ;
+    uni:hasName "Marie Dubois" ;
+    uni:role "Professor of Mathematics" ;
+    uni:teaches uni:Math201 ;
+    uni:worksIn uni:Mathematics_Sorbonne .
+
+uni:Stefan_Mueller a uni:Person ;
+    uni:hasName "Stefan Mueller" ;
+    uni:role "Assistant Professor of Engineering" ;
+    uni:teaches uni:Eng202 ;
+    uni:worksIn uni:Engineering_LMU .
+
+# ---------------------------
+# Students 
+# ---------------------------
+
+uni:Student1 a uni:Person ;
+    uni:hasName "Sophia Müller" ;
+    uni:role "Student" .
+
+uni:Student2 a uni:Person ;
+    uni:hasName "Luca Rossi" ;
+    uni:role "Student" .
+
+uni:Student3 a uni:Person ;
+    uni:hasName "Emma García" ;
+    uni:role "Student" .
+
+uni:Student4 a uni:Person ;
+    uni:hasName "Hugo Dubois" ;
+    uni:role "Student" .
+
+uni:Student5 a uni:Person ;
+    uni:hasName "Nina Papadopoulos" ;
+    uni:role "Student" .
+
+uni:Student6 a uni:Person ;
+    uni:hasName "Oliver Smith" ;
+    uni:role "Student" .
+[?2004hroot@659d37762bc7:/app# grep -n -A5 -B5 "ComputerScience_NTUA" /app/university_graph.ttl
+[?2004l[32m[K41[m[K[36m[K-[m[K    uni:locatedInCountry "DE" .
+[32m[K42[m[K[36m[K-[m[K
+[32m[K43[m[K[36m[K-[m[K# ---------------------------
+[32m[K44[m[K[36m[K-[m[K# Departments
+[32m[K45[m[K[36m[K-[m[K# ---------------------------
+[32m[K46[m[K[36m[K:[m[Kuni:[01;31m[KComputerScience_NTUA[m[K a uni:Department ;
+[32m[K47[m[K[36m[K-[m[K    uni:belongsTo uni:NTUA .
+[32m[K48[m[K[36m[K-[m[K
+[32m[K49[m[K[36m[K-[m[Kuni:MechEngineering_NTUA a uni:Department ;
+[32m[K50[m[K[36m[K-[m[K    uni:belongsTo uni:NTUA .
+[32m[K51[m[K[36m[K-[m[K
+[36m[K--[m[K
+[32m[K78[m[K[36m[K-[m[K
+[32m[K79[m[K[36m[K-[m[K# ---------------------------
+[32m[K80[m[K[36m[K-[m[K# Courses
+[32m[K81[m[K[36m[K-[m[K# ---------------------------
+[32m[K82[m[K[36m[K-[m[Kuni:CS101 a uni:Course ;
+[32m[K83[m[K[36m[K:[m[K    uni:isTaughtIn uni:[01;31m[KComputerScience_NTUA[m[K .
+[32m[K84[m[K[36m[K-[m[K
+[32m[K85[m[K[36m[K-[m[Kuni:AI101 a uni:Course ;
+[32m[K86[m[K[36m[K:[m[K    uni:isTaughtIn uni:[01;31m[KComputerScience_NTUA[m[K .
+[32m[K87[m[K[36m[K-[m[K
+[32m[K88[m[K[36m[K-[m[Kuni:Math101 a uni:Course ;
+[32m[K89[m[K[36m[K-[m[K    uni:isTaughtIn uni:Mathematics_IST .
+[32m[K90[m[K[36m[K-[m[K
+[32m[K91[m[K[36m[K-[m[Kuni:Math201 a uni:Course ;
+[36m[K--[m[K
+[32m[K111[m[K[36m[K-[m[K
+[32m[K112[m[K[36m[K-[m[Kuni:Orfeas_Menis a uni:Person ;
+[32m[K113[m[K[36m[K-[m[K    uni:hasName "Orfeas Menis" ;
+[32m[K114[m[K[36m[K-[m[K    uni:role "Professor of Computer Science" ;
+[32m[K115[m[K[36m[K-[m[K    uni:teaches uni:CS101 ;
+[32m[K116[m[K[36m[K:[m[K    uni:worksIn uni:[01;31m[KComputerScience_NTUA[m[K , uni:Sloan_MIT .
+[32m[K117[m[K[36m[K-[m[K
+[32m[K118[m[K[36m[K-[m[Kuni:Athanasios_Voulodimos a uni:Person ;
+[32m[K119[m[K[36m[K-[m[K    uni:hasName "Athanasios Voulodimos" ;
+[32m[K120[m[K[36m[K-[m[K    uni:role "Assistant Professor of Computer Science" ;
+[32m[K121[m[K[36m[K-[m[K    uni:teaches uni:CS101 ;
+[32m[K122[m[K[36m[K:[m[K    uni:worksIn uni:[01;31m[KComputerScience_NTUA[m[K .
+[32m[K123[m[K[36m[K-[m[K
+[32m[K124[m[K[36m[K-[m[Kuni:Pepe_Attanasio a uni:Person ;
+[32m[K125[m[K[36m[K-[m[K    uni:hasName "Pepe Attanasio" ;
+[32m[K126[m[K[36m[K-[m[K    uni:role "Professor of Mathematics" ;
+[32m[K127[m[K[36m[K-[m[K    uni:teaches uni:Math101 , uni:AI101 ;
+[32m[K128[m[K[36m[K:[m[K    uni:worksIn uni:Mathematics_IST , uni:[01;31m[KComputerScience_NTUA[m[K .
+[32m[K129[m[K[36m[K-[m[K
+[32m[K130[m[K[36m[K-[m[Kuni:Aristotle_Tympas a uni:Person ;
+[32m[K131[m[K[36m[K-[m[K    uni:hasName "Aristotle Tympas" ;
+[32m[K132[m[K[36m[K-[m[K    uni:role "Professor of History of Scienceand Technology" ;
+[32m[K133[m[K[36m[K-[m[K    uni:teaches uni:STS101 ;
+[?2004hroot@659d37762bc7:/app# grep -n -A3 -B3 "Student1" /app/university_graph.ttl
+[?2004l[32m[K155[m[K[36m[K-[m[K# Students 
+[32m[K156[m[K[36m[K-[m[K# ---------------------------
+[32m[K157[m[K[36m[K-[m[K
+[32m[K158[m[K[36m[K:[m[Kuni:[01;31m[KStudent1[m[K a uni:Person ;
+[32m[K159[m[K[36m[K-[m[K    uni:hasName "Sophia Müller" ;
+[32m[K160[m[K[36m[K-[m[K    uni:role "Student" .
+[32m[K161[m[K[36m[K-[m[K
+[36m[K--[m[K
+[32m[K191[m[K[36m[K-[m[K    uni:hasName "Sofia Conti" ;
+[32m[K192[m[K[36m[K-[m[K    uni:role "Student" .
+[32m[K193[m[K[36m[K-[m[K
+[32m[K194[m[K[36m[K:[m[Kuni:[01;31m[KStudent1[m[K0 a uni:Person ;
+[32m[K195[m[K[36m[K-[m[K    uni:hasName "Elias Jensen" ;
+[32m[K196[m[K[36m[K-[m[K    uni:role "Student" .
+[32m[K197[m[K[36m[K-[m[K
+[32m[K198[m[K[36m[K:[m[Kuni:[01;31m[KStudent1[m[K1 a uni:Person ;
+[32m[K199[m[K[36m[K-[m[K    uni:hasName "Clara Novak" ;
+[32m[K200[m[K[36m[K-[m[K    uni:role "Student" .
+[32m[K201[m[K[36m[K-[m[K
+[32m[K202[m[K[36m[K:[m[Kuni:[01;31m[KStudent1[m[K2 a uni:Person ;
+[32m[K203[m[K[36m[K-[m[K    uni:hasName "Liam Schneider" ;
+[32m[K204[m[K[36m[K-[m[K    uni:role "Student" .
+[32m[K205[m[K[36m[K-[m[K
+[32m[K206[m[K[36m[K:[m[Kuni:[01;31m[KStudent1[m[K3 a uni:Person ;
+[32m[K207[m[K[36m[K-[m[K    uni:hasName "Mia Laurent" ;
+[32m[K208[m[K[36m[K-[m[K    uni:role "Student" .
+[32m[K209[m[K[36m[K-[m[K
+[32m[K210[m[K[36m[K:[m[Kuni:[01;31m[KStudent1[m[K4 a uni:Person ;
+[32m[K211[m[K[36m[K-[m[K    uni:hasName "Noah Cohen" ;
+[32m[K212[m[K[36m[K-[m[K    uni:role "Student" .
+[32m[K213[m[K[36m[K-[m[K
+[32m[K214[m[K[36m[K:[m[Kuni:[01;31m[KStudent1[m[K5 a uni:Person ;
+[32m[K215[m[K[36m[K-[m[K    uni:hasName "Chloe Moreau" ;
+[32m[K216[m[K[36m[K-[m[K    uni:role "Student" .
+[32m[K217[m[K[36m[K-[m[K
+[32m[K218[m[K[36m[K:[m[Kuni:[01;31m[KStudent1[m[K6 a uni:Person ;
+[32m[K219[m[K[36m[K-[m[K    uni:hasName "Ethan Dubois" ;
+[32m[K220[m[K[36m[K-[m[K    uni:role "Student" .
+[32m[K221[m[K[36m[K-[m[K
+[32m[K222[m[K[36m[K:[m[Kuni:[01;31m[KStudent1[m[K7 a uni:Person ;
+[32m[K223[m[K[36m[K-[m[K    uni:hasName "Ava Rossi" ;
+[32m[K224[m[K[36m[K-[m[K    uni:role "Student" .
+[32m[K225[m[K[36m[K-[m[K
+[32m[K226[m[K[36m[K:[m[Kuni:[01;31m[KStudent1[m[K8 a uni:Person ;
+[32m[K227[m[K[36m[K-[m[K    uni:hasName "Lucas García" ;
+[32m[K228[m[K[36m[K-[m[K    uni:role "Student" .
+[32m[K229[m[K[36m[K-[m[K
+[32m[K230[m[K[36m[K:[m[Kuni:[01;31m[KStudent1[m[K9 a uni:Person ;
+[32m[K231[m[K[36m[K-[m[K    uni:hasName "Emily Schmidt" ;
+[32m[K232[m[K[36m[K-[m[K    uni:role "Student" .
+[32m[K233[m[K[36m[K-[m[K
+[36m[K--[m[K
+[32m[K275[m[K[36m[K-[m[K    uni:hasName "Jacob Wagner" ;
+[32m[K276[m[K[36m[K-[m[K    uni:role "Student" .
+[32m[K277[m[K[36m[K-[m[K
+[32m[K278[m[K[36m[K:[m[Kuni:[01;31m[KStudent1[m[K uni:isEnrolledIn uni:CS101, uni:Bio101, uni:STS101, uni:EngUS302 ; uni:hasEnrollmentDate "2024-01-10"^^xsd:date .
+[32m[K279[m[K[36m[K-[m[Kuni:Student2 uni:isEnrolledIn uni:CS101, uni:Bio101, uni:EngUS302 ; uni:hasEnrollmentDate "2024-01-11"^^xsd:date .
+[32m[K280[m[K[36m[K-[m[Kuni:Student3 uni:isEnrolledIn uni:CS101, uni:Bio101, uni:EngUS302 ; uni:hasEnrollmentDate "2024-01-12"^^xsd:date .
+[32m[K281[m[K[36m[K-[m[Kuni:Student4 uni:isEnrolledIn uni:CS101, uni:EngUS302, uni:STS101 ; uni:hasEnrollmentDate "2024-01-13"^^xsd:date .
+[36m[K--[m[K
+[32m[K284[m[K[36m[K-[m[Kuni:Student7 uni:isEnrolledIn uni:CS101, uni:Bio101 ; uni:hasEnrollmentDate "2024-01-16"^^xsd:date .
+[32m[K285[m[K[36m[K-[m[Kuni:Student8 uni:isEnrolledIn uni:CS101, uni:STS101; uni:hasEnrollmentDate "2024-01-17"^^xsd:date .
+[32m[K286[m[K[36m[K-[m[Kuni:Student9 uni:isEnrolledIn uni:CS101, uni:Bio101 ; uni:hasEnrollmentDate "2024-01-18"^^xsd:date .
+[32m[K287[m[K[36m[K:[m[Kuni:[01;31m[KStudent1[m[K0 uni:isEnrolledIn uni:CS101, uni:Bio101, uni:EngUS302, uni:STS101 ; uni:hasEnrollmentDate "2024-01-19"^^xsd:date .
+[32m[K288[m[K[36m[K:[m[Kuni:[01;31m[KStudent1[m[K1 uni:isEnrolledIn uni:CS101, uni:Bio101, uni:EngUS302, uni:STS101 ; uni:hasEnrollmentDate "2024-01-20"^^xsd:date .
+[32m[K289[m[K[36m[K:[m[Kuni:[01;31m[KStudent1[m[K2 uni:isEnrolledIn uni:CS101, uni:STS101; uni:hasEnrollmentDate "2024-01-21"^^xsd:date .
+[32m[K290[m[K[36m[K-[m[K
+[32m[K291[m[K[36m[K:[m[Kuni:[01;31m[KStudent1[m[K3 uni:isEnrolledIn uni:Math201, uni:EngUS302, uni:STS101 ; uni:hasEnrollmentDate "2024-01-10"^^xsd:date .
+[32m[K292[m[K[36m[K:[m[Kuni:[01;31m[KStudent1[m[K4 uni:isEnrolledIn uni:Math201, uni:EngUS302, uni:STS101 ; uni:hasEnrollmentDate "2024-01-11"^^xsd:date .
+[32m[K293[m[K[36m[K:[m[Kuni:[01;31m[KStudent1[m[K5 uni:isEnrolledIn uni:Math201, uni:EngUS302, uni:STS101 ; uni:hasEnrollmentDate "2024-01-12"^^xsd:date .
+[32m[K294[m[K[36m[K:[m[Kuni:[01;31m[KStudent1[m[K6 uni:isEnrolledIn uni:Math201, uni:STS101 ; uni:hasEnrollmentDate "2024-01-12"^^xsd:date .
+[32m[K295[m[K[36m[K:[m[Kuni:[01;31m[KStudent1[m[K7 uni:isEnrolledIn uni:Math201 ; uni:hasEnrollmentDate "2024-01-12"^^xsd:date ; uni:hasGraduationDate "2026-06-12"^^xsd:date.
+[32m[K296[m[K[36m[K:[m[Kuni:[01;31m[KStudent1[m[K8 uni:isEnrolledIn uni:Math201 ; uni:hasEnrollmentDate "2024-01-12"^^xsd:date ; uni:hasGraduationDate "2025-07-12"^^xsd:date.
+[32m[K297[m[K[36m[K:[m[Kuni:[01;31m[KStudent1[m[K9 uni:isEnrolledIn uni:Math201 ; uni:hasEnrollmentDate "2024-01-12"^^xsd:date ; uni:hasGraduationDate "2025-06-12"^^xsd:date.
+[32m[K298[m[K[36m[K-[m[Kuni:Student20 uni:isEnrolledIn uni:Math201 ; uni:hasEnrollmentDate "2024-01-12"^^xsd:date ; uni:hasGraduationDate "2025-06-15"^^xsd:date.
+[32m[K299[m[K[36m[K-[m[Kuni:Student21 uni:isEnrolledIn uni:Math201, uni:STS101 ; uni:hasEnrollmentDate "2024-01-12"^^xsd:date ; uni:hasGraduationDate "2025-06-12"^^xsd:date.
+[32m[K300[m[K[36m[K-[m[Kuni:Student22 uni:isEnrolledIn uni:Math201 ; uni:hasEnrollmentDate "2024-01-12"^^xsd:date ; uni:hasGraduationDate "2025-06-12"^^xsd:date.
+[?2004hroot@659d37762bc7:/app# cat <<'EOF' > /app/solution.sparql
+[?2004l[?2004h> PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+[?2004l[?2004h> PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+[?2004l[?2004h> PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
+[?2004l[?2004h> PREFIX uni: <http://university.org/ontology/>
+[?2004l[?2004h> 
+[?2004l[?2004h> # EU member states (ISO‑3166‑1 alpha‑2) as of 2025‑08‑16
+[?2004l[?2004h> VALUES ?euCountry {
+[?2004l[?2004h>   "AT" "BE" "BG" "HR" "CY" "CZ" "DK" "EE" "FI" "FR"
+[?2004l[?2004h>   "DE" "GR" "HU" "IE" "IT" "LV" "LT" "LU" "MT" "NL"
+[?2004l[?2004h>   "PL" "PT" "RO" "SK" "SI" "ES" "SE" "EL" "LT" "LV"
+[?2004l[?2004h> }
+[?2004l[?2004h> 
+[?2004l[?2004h> SELECT ?professorName (GROUP_CONCAT(DISTINCT ?country; separator=", ") AS ?countries)
+[?2004l[?2004h> WHERE {
+[?2004l[?2004h>   # Full professors (role contains "Professor" but not "Assistant")
+[?2004l[?2004h>   ?professor a uni:Person ;
+[?2004l[?2004h>              uni:hasName ?professorName ;
+[?2004l[?2004h>              uni:role ?role ;
+[?2004l[?2004h>              uni:worksIn ?dept .
+[?2004l[?2004h>   FILTER(CONTAINS(?role, "Professor") && !CONTAINS(?role, "Assistant"))
+[?2004l[?2004h> 
+[?2004l[?2004h>   # Department belongs to a university
+[?2004l[?2004h>   ?dept a uni:Department ;
+[?2004l[?2004h>         uni:belongsTo ?univ .
+[?2004l[?2004h>   ?univ uni:locatedInCountry ?country .
+[?2004l[?2004h>   FILTER(?country IN (?euCountry))
+[?2004l[?2004h> 
+[?2004l[?2004h>   # At least one of the professor's departments has >10 students enrolled in its courses
+[?2004l[?2004h>   {
+[?2004l[?2004h>     SELECT ?dept (COUNT(DISTINCT ?student) AS ?studentCount)
+[?2004l[?2004h>     WHERE {
+[?2004l[?2004h>       ?course a uni:Course ;
+[?2004l[?2004h>               uni:isTaughtIn ?dept .
+[?2004l[?2004h>       ?student a uni:Person ;
+[?2004l[?2004h>                uni:role "Student" ;
+[?2004l[?2004h>                uni:isEnrolledIn ?course .
+[?2004l[?2004h>     }
+[?2004l[?2004h>     GROUP BY ?dept
+[?2004l[?2004h>     HAVING(?studentCount > 10)
+[?2004l[?2004h>   }
+[?2004l[?2004h> }
+[?2004l[?2004h> GROUP BY ?professorName
+[?2004l[?2004h> EOF
+[?2004l[?2004hroot@659d37762bc7:/app# ls -l /app/solution.sparql
+[?2004l-rw-r--r-- 1 root root 1418 Sep 14 04:28 /app/solution.sparql
+[?2004hroot@659d37762bc7:/app# 

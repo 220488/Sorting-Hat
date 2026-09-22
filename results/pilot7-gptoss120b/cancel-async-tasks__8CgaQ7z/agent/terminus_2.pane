@@ -1,0 +1,71 @@
+[?2004hroot@0df7f19611bb:/app# asciinema rec --stdin /logs/agent/recording.cast
+[?2004l[0;32masciinema: recording asciicast to /logs/agent/recording.cast[0m
+[0;32masciinema: press <ctrl-d> or type "exit" when you're done[0m
+[?2004hroot@0df7f19611bb:/app# clear
+[?2004l[H[J[3J[?2004hroot@0df7f19611bb:/app# cat > run.py <<'EOF'
+[?2004lther will cancel pending tasks, but tasks already inside the semaphore will continue
+        # until they finish, allowing their finally blocks to run.
+        await asyncio.gather(*coros, return_exceptions=True)
+        raise
+EOF
+[?2004h> import asyncio
+[?2004l[?2004h> from typing import Callable, Awaitable, List
+[?2004l[?2004h> 
+[?2004l[?2004h> async def run_tasks(tasks: List[Callable[[], Awaitable[None]]], max_concurrent: int) -> None:
+[?2004l[?2004h>     """Run async tasks with a limit on concurrency.
+[?2004l[?2004h> 
+[?2004l[?2004h>     Args:
+[?2004l[?2004h>         tasks: A list of callables that return an awaitable (the async job).
+[?2004l[?2004h>         max_concurrent: Maximum number of tasks to run at the same time.
+[?2004l[?2004h>     """
+[?2004l[?2004h>     semaphore = asyncio.Semaphore(max_concurrent)
+[?2004l[?2004h> 
+[?2004l[?2004h>     async def _run(task_callable: Callable[[], Awaitable[None]]) -> None:
+[?2004l[?2004h>         async with semaphore:
+[?2004l[?2004h>             # Await the task; any cleanup in the task's finally block will run
+[?2004l[?2004h>             await task_callable()
+[?2004l[?2004h> 
+[?2004l[?2004h>     # Prepare coroutines for all tasks
+[?2004l[?2004h>     coros = [_run(t) for t in tasks]
+[?2004l[?2004h> 
+[?2004l[?2004h>     # Run them, ensuring that cancellation still allows already started tasks to finish their cleanup.
+[?2004l[?2004h>     try:
+[?2004l[?2004h>         await asyncio.gather(*coros)
+[?2004l[?2004h>     except asyncio.CancelledError:
+[?2004l[?2004h>         # Propagate cancellation after awaiting all currently running tasks.
+[?2004l[?2004h>         # asyncio.gather will cancel pending tasks, but tasks already inside the semaphore will continue
+[?2004l[?2004h>         # until they finish, allowing their finally blocks to run.
+[?2004l[?2004h>         await asyncio.gather(*coros, return_exceptions=True)
+[?2004l[?2004h>         raise
+[?2004l[?2004h> EOF
+[?2004l[?2004hroot@0df7f19611bb:/app# ls -l
+[?2004ltotal 4
+-rw-r--r-- 1 root root 1230 Sep 14 04:22 run.py
+[?2004hroot@0df7f19611bb:/app# cat > run.py <<'EOF'
+[?2004l[?2004h> import asyncio
+[?2004l[?2004h> from typing import Callable, Awaitable
+[?2004l[?2004h> 
+[?2004l[?2004h> async def run_tasks(tasks: list[Callable[[], Awaitable[None]]], max_concurrent: int) -> None:
+[?2004l[?2004h>     """Run async tasks with a limit on concurrency.
+[?2004l[?2004h> 
+[?2004l[?2004h>     Args:
+[?2004l[?2004h>         tasks: List of callables returning an awaitable representing the async job.
+[?2004l[?2004h>         max_concurrent: Maximum number of tasks to run simultaneously.
+[?2004l[?2004h>     """
+[?2004l[?2004h>     semaphore = asyncio.Semaphore(max_concurrent)
+[?2004l[?2004h> 
+[?2004l[?2004h>     async def _run(task_callable: Callable[[], Awaitable[None]]) -> None:
+[?2004l[?2004h>         async with semaphore:
+[?2004l[?2004h>             await task_callable()
+[?2004l[?2004h> 
+[?2004l[?2004h>     coros = [_run(t) for t in tasks]
+[?2004l[?2004h>     try:
+[?2004l[?2004h>         await asyncio.gather(*coros)
+[?2004l[?2004h>     except asyncio.CancelledError:
+[?2004l[?2004h>         # Ensure already‑started tasks can finish their cleanup.
+[?2004l[?2004h>         await asyncio.gather(*coros, return_exceptions=True)
+[?2004l[?2004h>         raise
+[?2004l[?2004h> EOF
+[?2004l[?2004hroot@0df7f19611bb:/app# ls -l run.py
+[?2004l-rw-r--r-- 1 root root 825 Sep 14 04:22 run.py
+[?2004hroot@0df7f19611bb:/app# 

@@ -1,0 +1,123 @@
+[?2004hroot@09b0dd21a84e:/app# asciinema rec --stdin /logs/agent/recording.cast
+[?2004l[0;32masciinema: recording asciicast to /logs/agent/recording.cast[0m
+[0;32masciinema: press <ctrl-d> or type "exit" when you're done[0m
+[?2004hroot@09b0dd21a84e:/app# clear
+[?2004l[H[J[3J[?2004hroot@09b0dd21a84e:/app# cat > /app/run.py <<'PY'
+[?2004l[?2004h> import asyncio
+[?2004l         task.cancel()
+        await asyncio.gather(*pending, return_exceptions=True)
+        raise
+PY
+python3 -m py_compile /app/run.py
+sed -n '1,240p' /app/run.py
+[?2004h> from collections.abc import Awaitable, Callable
+[?2004l[?2004h> 
+[?2004l[?2004h> 
+[?2004l[?2004h> async def run_tasks(
+[?2004l[?2004h>     tasks: list[Callable[[], Awaitable[None]]],
+[?2004l[?2004h>     max_concurrent: int,
+[?2004l[?2004h> ) -> None:
+[?2004l[?2004h>     """Run async jobs with a limit on the number running concurrently.
+[?2004l[?2004h> 
+[?2004l[?2004h>     If this function is cancelled, or if one of the jobs raises, all other
+[?2004l[?2004h>     jobs are cancelled and awaited before the exception is propagated. This
+[?2004l[?2004h>     gives their cancellation handlers and ``finally`` blocks a chance to run.
+[?2004l[?2004h>     """
+[?2004l[?2004h>     if max_concurrent <= 0:
+[?2004l[?2004h>         raise ValueError("max_concurrent must be greater than zero")
+[?2004l[?2004h> 
+[?2004l[?2004h>     semaphore = asyncio.Semaphore(max_concurrent)
+[?2004l[?2004h> 
+[?2004l[?2004h>     async def run_one(task: Callable[[], Awaitable[None]]) -> None:
+[?2004l[?2004h>         async with semaphore:
+[?2004l[?2004h>             await task()
+[?2004l[?2004h> 
+[?2004l[?2004h>     pending = [asyncio.create_task(run_one(task)) for task in tasks]
+[?2004l[?2004h>     if not pending:
+[?2004l[?2004h>         return
+[?2004l[?2004h> 
+[?2004l[?2004h>     try:
+[?2004l[?2004h>         await asyncio.gather(*pending)
+[?2004l[?2004h>     except BaseException:
+[?2004l[?2004h>         for task in pending:
+[?2004l[?2004h>             if not task.done():
+[?2004l[?2004h>                 task.cancel()
+[?2004l[?2004h>         await asyncio.gather(*pending, return_exceptions=True)
+[?2004l[?2004h>         raise
+[?2004l[?2004h> PY
+[?2004l[?2004hroot@09b0dd21a84e:/app# python3 -m py_compile /app/run.py
+[?2004l[?2004hroot@09b0dd21a84e:/app# sed -n '1,240p' /app/run.py
+[?2004limport asyncio
+from collections.abc import Awaitable, Callable
+
+
+async def run_tasks(
+    tasks: list[Callable[[], Awaitable[None]]],
+    max_concurrent: int,
+) -> None:
+    """Run async jobs with a limit on the number running concurrently.
+
+    If this function is cancelled, or if one of the jobs raises, all other
+    jobs are cancelled and awaited before the exception is propagated. This
+    gives their cancellation handlers and ``finally`` blocks a chance to run.
+    """
+    if max_concurrent <= 0:
+        raise ValueError("max_concurrent must be greater than zero")
+
+    semaphore = asyncio.Semaphore(max_concurrent)
+
+    async def run_one(task: Callable[[], Awaitable[None]]) -> None:
+        async with semaphore:
+            await task()
+
+    pending = [asyncio.create_task(run_one(task)) for task in tasks]
+    if not pending:
+        return
+
+    try:
+        await asyncio.gather(*pending)
+    except BaseException:
+        for task in pending:
+            if not task.done():
+                task.cancel()
+        await asyncio.gather(*pending, return_exceptions=True)
+        raise
+[?2004hroot@09b0dd21a84e:/app# python3 - <<'PY'
+[?2004l[?2004h> import asyncio
+[?2004l[?2004h> from run import run_tasks
+[?2004l[?2004h> 
+[?2004l[?2004h> async def main():
+[?2004l[?2004h>     active = 0
+[?2004l[?2004h>     maximum = 0
+[?2004l[?2004h>     cleaned = 0
+[?2004l[?2004h>     lock = asyncio.Lock()
+[?2004l[?2004h> 
+[?2004l[?2004h>     async def job():
+[?2004l[?2004h>         nonlocal active, maximum, cleaned
+[?2004l[?2004h>         async with lock:
+[?2004l[?2004h>             active += 1
+[?2004l[?2004h>             maximum = max(maximum, active)
+[?2004l[?2004h>         try:
+[?2004l[?2004h>             await asyncio.sleep(0.2)
+[?2004l[?2004h>         finally:
+[?2004l[?2004h>             async with lock:
+[?2004l[?2004h>                 active -= 1
+[?2004l[?2004h>                 cleaned += 1
+[?2004l[?2004h> 
+[?2004l[?2004h>     await run_tasks([job for _ in range(5)], 2)
+[?2004l[?2004h>     assert maximum == 2, maximum
+[?2004l[?2004h>     assert cleaned == 5, cleaned
+[?2004l[?2004h> 
+[?2004l[?2004h>     cleaned = 0
+[?2004l[?2004h>     runner = asyncio.create_task(run_tasks([job for _ in range(5)], 2))
+[?2004l[?2004h>     await asyncio.sleep(0.05)
+[?2004l[?2004h>     runner.cancel()
+[?2004l[?2004h>     try:
+[?2004l[?2004h>         await runner
+[?2004l[?2004h>     except asyncio.CancelledError:
+[?2004l[?2004h>         pass
+[?2004l[?2004h>     assert cleaned == 5, cleaned
+[?2004l[?2004h> 
+[?2004l[?2004h> asyncio.run(main())
+[?2004l[?2004h> print('behavioral tests passed')
+[?2004l[?2004h> PY

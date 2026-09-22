@@ -1,0 +1,292 @@
+[?2004hroot@6451047e37d2:/app# asciinema rec --stdin /logs/agent/recording.cast
+[?2004l[0;32masciinema: recording asciicast to /logs/agent/recording.cast[0m
+[0;32masciinema: press <ctrl-d> or type "exit" when you're done[0m
+[?2004hroot@6451047e37d2:/app# clear
+[?2004l[H[J[3J[?2004hroot@6451047e37d2:/app# cat > /app/run.py << 'EOF'
+[?2004l[?2004h> import asyncio
+[?2004l[?2004h> from concurrent.futures import Semaphore
+[?2004l[?2004h> from typing import Callable, Awaitable, List
+[?2004l[?2004h> 
+[?2004l[?2004h> def run_tasks(tasks: List[Callable[[], Awaitable[None]]], max_concurrent: int) -> None:
+[?2004l[?2004h>     """
+[?2004l[?2004h>     Run multiple async tasks concurrently with a maximum number of concurrent executions.
+[?2004l[?2004h>     
+[?2004l[?2004h>     Args:
+[?2004l[?2004h>         tasks: List of async functions to run (each returns an Awaitable[None])
+[?2004l[?2004h>         max_concurrent: Maximum number of tasks to run concurrently
+[?2004l[?2004h>     """
+[?2004l[?2004h>     async def run_single_task(task: Callable[[], Awaitable[None]]) -> None:
+[?2004l[?2004h>         try:
+[?2004l[?2004h>             await task()
+[?2004l[?2004h>         except asyncio.CancelledError:
+[?2004l[?2004h>             # Propagate cancellation but don't suppress cleanup
+[?2004l[?2004h>             raise
+[?2004l[?2004h>     
+[?2004l[?2004h>     semaphore = Semaphore(max_concurrent)
+[?2004l[?2004h>     semaphore.acquire()  # Pre-fill to ensure we can limit properly
+[?2004l[?2004h>     semaphore.release()  # Immediately release
+[?2004l[?2004h>     
+[?2004l[?2004h>     async def safe_task(task: Callable[[], Awaitable[None]]) -> None:
+[?2004l[?2004h>         async with semaphore:
+[?2004l[?2004h>             await run_single_task(task)
+[?2004l[?2004h>     
+[?2004l[?2004h>     async def run_all():
+[?2004l[?2004h>         try:
+[?2004l[?2004h>             await asyncio.gather(*[safe_task(task) for task in tasks], return_exceptions=True)
+[?2004l[?2004h>         finally:
+[?2004l[?2004h>             semaphore.release()  # If tasks fail due to semaphores, release them
+[?2004l[?2004h>     
+[?2004l[?2004h>     # Run the tasks, handling keyboard interrupts gracefully
+[?2004l[?2004h>     loop = asyncio.get_event_loop()
+[?2004l[?2004h>     try:
+[?2004l[?2004h>         loop.run_until_complete(run_all())
+[?2004l[?2004h>     except KeyboardInterrupt:
+[?2004l[?2004h>         # Cancel all tasks on keyboard interrupt, allowing cleanup to run
+[?2004l[?2004h>         tasks_to_cancel = [safe_task(task) for task in tasks]
+[?2004l[?2004h>         for task in tasks_to_cancel:
+[?2004l[?2004h>             task.cancel()
+[?2004l[?2004h>         await asyncio.gather(*tasks_to_cancel, return_exceptions=True)
+[?2004l[?2004h>     finally:
+[?2004l[?2004h>         # Ensure semaphore is released if tasks were cancelled
+[?2004l[?2004h>         semaphore.release()
+[?2004l[?2004h> EOF
+[?2004l[?2004hroot@6451047e37d2:/app# cat /app/run.py
+[?2004limport asyncio
+from concurrent.futures import Semaphore
+from typing import Callable, Awaitable, List
+
+def run_tasks(tasks: List[Callable[[], Awaitable[None]]], max_concurrent: int) -> None:
+    """
+    Run multiple async tasks concurrently with a maximum number of concurrent executions.
+    
+    Args:
+        tasks: List of async functions to run (each returns an Awaitable[None])
+        max_concurrent: Maximum number of tasks to run concurrently
+    """
+    async def run_single_task(task: Callable[[], Awaitable[None]]) -> None:
+        try:
+            await task()
+        except asyncio.CancelledError:
+            # Propagate cancellation but don't suppress cleanup
+            raise
+    
+    semaphore = Semaphore(max_concurrent)
+    semaphore.acquire()  # Pre-fill to ensure we can limit properly
+    semaphore.release()  # Immediately release
+    
+    async def safe_task(task: Callable[[], Awaitable[None]]) -> None:
+        async with semaphore:
+            await run_single_task(task)
+    
+    async def run_all():
+        try:
+            await asyncio.gather(*[safe_task(task) for task in tasks], return_exceptions=True)
+        finally:
+            semaphore.release()  # If tasks fail due to semaphores, release them
+    
+    # Run the tasks, handling keyboard interrupts gracefully
+    loop = asyncio.get_event_loop()
+    try:
+        loop.run_until_complete(run_all())
+    except KeyboardInterrupt:
+        # Cancel all tasks on keyboard interrupt, allowing cleanup to run
+        tasks_to_cancel = [safe_task(task) for task in tasks]
+        for task in tasks_to_cancel:
+            task.cancel()
+        await asyncio.gather(*tasks_to_cancel, return_exceptions=True)
+    finally:
+        # Ensure semaphore is released if tasks were cancelled
+        semaphore.release()
+[?2004hroot@6451047e37d2:/app# python3 -c "from run import run_tasks; print('Import successful!')"
+[?2004lbash: !': event not found
+[?2004hroot@6451047e37d2:/app# python3 -c 'from run import run_tasks; print("Import successful")'
+[?2004lTraceback (most recent call last):
+  File [35m"<string>"[0m, line [35m1[0m, in [35m<module>[0m
+    [1;31mfrom run import run_tasks[0m; print("Import successful")
+    [1;31m^^^^^^^^^^^^^^^^^^^^^^^^^[0m
+  File [35m"/app/run.py"[0m, line [35m43[0m
+    [1;31mawait asyncio.gather(*tasks_to_cancel, return_exceptions=True)[0m
+    [1;31m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
+[1;35mSyntaxError[0m: [35m'await' outside async function[0m
+[?2004hroot@6451047e37d2:/app# cat > /app/run.py << 'EOF'
+[?2004l[?2004h> import asyncio
+[?2004l[?2004h> from concurrent.futures import Semaphore
+[?2004l[?2004h> from typing import Callable, Awaitable, List
+[?2004l[?2004h> 
+[?2004l[?2004h> def run_tasks(tasks: List[Callable[[], Awaitable[None]]], max_concurrent: int) -> None:
+[?2004l[?2004h>     """
+[?2004l[?2004h>     Run multiple async tasks concurrently with a maximum number of concurrent executions.
+[?2004l[?2004h>     
+[?2004l[?2004h>     Args:
+[?2004l[?2004h>         tasks: List of async functions to run (each returns an Awaitable[None])
+[?2004l[?2004h>         max_concurrent: Maximum number of tasks to run concurrently
+[?2004l[?2004h>     """
+[?2004l[?2004h>     async def run_single_task(task: Callable[[], Awaitable[None]]) -> None:
+[?2004l[?2004h>         try:
+[?2004l[?2004h>             await task()
+[?2004l[?2004h>         except asyncio.CancelledError:
+[?2004l[?2004h>             # Propagate cancellation but don't suppress cleanup
+[?2004l[?2004h>             raise
+[?2004l[?2004h>     
+[?2004l[?2004h>     semaphore = Semaphore(max_concurrent)
+[?2004l[?2004h>     semaphore.acquire()  # Pre-fill to ensure we can limit properly
+[?2004l[?2004h>     semaphore.release()  # Immediately release
+[?2004l[?2004h>     
+[?2004l[?2004h>     async def safe_task(task: Callable[[], Awaitable[None]]) -> None:
+[?2004l[?2004h>         async with semaphore:
+[?2004l[?2004h>             await run_single_task(task)
+[?2004l[?2004h>     
+[?2004l[?2004h>     async def run_all():
+[?2004l[?2004h>         try:
+[?2004l[?2004h>             await asyncio.gather(*[safe_task(task) for task in tasks], return_exceptions=True)
+[?2004l[?2004h>         finally:
+[?2004l[?2004h>             semaphore.release()  # If tasks fail due to semaphores, release them
+[?2004l[?2004h>     
+[?2004l[?2004h>     # Run the tasks, handling keyboard interrupts gracefully
+[?2004l[?2004h>     async def cancel_and_wait():
+[?2004l[?2004h>         tasks_to_cancel = [safe_task(task) for task in tasks]
+[?2004l[?2004h>         for task in tasks_to_cancel:
+[?2004l[?2004h>             task.cancel()
+[?2004l[?2004h>         await asyncio.gather(*tasks_to_cancel, return_exceptions=True)
+[?2004l[?2004h>     
+[?2004l[?2004h>     loop = asyncio.get_event_loop()
+[?2004l[?2004h>     try:
+[?2004l[?2004h>         loop.run_until_complete(run_all())
+[?2004l[?2004h>     except KeyboardInterrupt:
+[?2004l[?2004h>         # Cancel all tasks on keyboard interrupt, allowing cleanup to run
+[?2004l[?2004h>         loop.run_until_complete(cancel_and_wait())
+[?2004l[?2004h>     finally:
+[?2004l[?2004h>         # Ensure semaphore is released if tasks were cancelled
+[?2004l[?2004h>         semaphore.release()
+[?2004l[?2004h> EOF
+[?2004l[?2004hroot@6451047e37d2:/app# python3 -c 'from run import run_tasks; print("Import successful")'
+[?2004lTraceback (most recent call last):
+  File [35m"<string>"[0m, line [35m1[0m, in [35m<module>[0m
+    [1;31mfrom run import run_tasks[0m; print("Import successful")
+    [1;31m^^^^^^^^^^^^^^^^^^^^^^^^^[0m
+  File [35m"/app/run.py"[0m, line [35m2[0m, in [35m<module>[0m
+    from concurrent.futures import Semaphore
+[1;35mImportError[0m: [35mcannot import name 'Semaphore' from 'concurrent.futures' (/usr/local/lib/python3.13/concurrent/futures/__init__.py)[0m
+[?2004hroot@6451047e37d2:/app# cat > /app/run.py << 'EOF'
+[?2004l  finally:
+            # Ensure semaphore is released
+            semaphore.release()
+    
+    # Run the tasks, handling keyboard interrupts gracefully
+    async def cancel_and_wait():
+        tasks_to_cancel = [safe_task(task) for task in tasks]
+        for task in tasks_to_cancel:
+            task.cancel()
+        await asyncio.gather(*tasks_to_cancel, return_exceptions=True)
+    
+    loop = asyncio.get_event_loop()
+    try:
+        loop.run_until_complete(run_all())
+    except KeyboardInterrupt:
+        # Cancel all tasks on keyboard interrupt, allowing cleanup to run
+        loop.run_until_complete(cancel_and_wait())
+    finally:
+        # Ensure semaphore is released if tasks were cancelled
+        semaphore.release()
+EOF
+[?2004h> import asyncio
+[?2004l[?2004h> from typing import Callable, Awaitable, List
+[?2004l[?2004h> 
+[?2004l[?2004h> def run_tasks(tasks: List[Callable[[], Awaitable[None]]], max_concurrent: int) -> None:
+[?2004l[?2004h>     """
+[?2004l[?2004h>     Run multiple async tasks concurrently with a maximum number of concurrent executions.
+[?2004l[?2004h>     
+[?2004l[?2004h>     Args:
+[?2004l[?2004h>         tasks: List of async functions to run (each returns an Awaitable[None])
+[?2004l[?2004h>         max_concurrent: Maximum number of tasks to run concurrently
+[?2004l[?2004h>     """
+[?2004l[?2004h>     async def run_single_task(task: Callable[[], Awaitable[None]]) -> None:
+[?2004l[?2004h>         try:
+[?2004l[?2004h>             await task()
+[?2004l[?2004h>         except asyncio.CancelledError:
+[?2004l[?2004h>             # Propagate cancellation but don't suppress cleanup
+[?2004l[?2004h>             raise
+[?2004l[?2004h>     
+[?2004l[?2004h>     semaphore = asyncio.Semaphore(max_concurrent)
+[?2004l[?2004h>     
+[?2004l[?2004h>     async def safe_task(task: Callable[[], Awaitable[None]]) -> None:
+[?2004l[?2004h>         async with semaphore:
+[?2004l[?2004h>             await run_single_task(task)
+[?2004l[?2004h>     
+[?2004l[?2004h>     async def run_all():
+[?2004l[?2004h>         try:
+[?2004l[?2004h>             await asyncio.gather(*[safe_task(task) for task in tasks], return_exceptions=True)
+[?2004l[?2004h>         finally:
+[?2004l[?2004h>             # Ensure semaphore is released
+[?2004l[?2004h>             semaphore.release()
+[?2004l[?2004h>     
+[?2004l[?2004h>     # Run the tasks, handling keyboard interrupts gracefully
+[?2004l[?2004h>     async def cancel_and_wait():
+[?2004l[?2004h>         tasks_to_cancel = [safe_task(task) for task in tasks]
+[?2004l[?2004h>         for task in tasks_to_cancel:
+[?2004l[?2004h>             task.cancel()
+[?2004l[?2004h>         await asyncio.gather(*tasks_to_cancel, return_exceptions=True)
+[?2004l[?2004h>     
+[?2004l[?2004h>     loop = asyncio.get_event_loop()
+[?2004l[?2004h>     try:
+[?2004l[?2004h>         loop.run_until_complete(run_all())
+[?2004l[?2004h>     except KeyboardInterrupt:
+[?2004l[?2004h>         # Cancel all tasks on keyboard interrupt, allowing cleanup to run
+[?2004l[?2004h>         loop.run_until_complete(cancel_and_wait())
+[?2004l[?2004h>     finally:
+[?2004l[?2004h>         # Ensure semaphore is released if tasks were cancelled
+[?2004l[?2004h>         semaphore.release()
+[?2004l[?2004h> EOF
+[?2004l[?2004hroot@6451047e37d2:/app# python3 -c 'from run import run_tasks; print("Import successful")'
+[?2004lImport successful
+[?2004hroot@6451047e37d2:/app# python3 -c 'from run import run_tasks; print("Test import works")'
+[?2004lTest import works
+[?2004hroot@6451047e37d2:/app# cat /app/run.py
+[?2004limport asyncio
+from typing import Callable, Awaitable, List
+
+def run_tasks(tasks: List[Callable[[], Awaitable[None]]], max_concurrent: int) -> None:
+    """
+    Run multiple async tasks concurrently with a maximum number of concurrent executions.
+    
+    Args:
+        tasks: List of async functions to run (each returns an Awaitable[None])
+        max_concurrent: Maximum number of tasks to run concurrently
+    """
+    async def run_single_task(task: Callable[[], Awaitable[None]]) -> None:
+        try:
+            await task()
+        except asyncio.CancelledError:
+            # Propagate cancellation but don't suppress cleanup
+            raise
+    
+    semaphore = asyncio.Semaphore(max_concurrent)
+    
+    async def safe_task(task: Callable[[], Awaitable[None]]) -> None:
+        async with semaphore:
+            await run_single_task(task)
+    
+    async def run_all():
+        try:
+            await asyncio.gather(*[safe_task(task) for task in tasks], return_exceptions=True)
+        finally:
+            # Ensure semaphore is released
+            semaphore.release()
+    
+    # Run the tasks, handling keyboard interrupts gracefully
+    async def cancel_and_wait():
+        tasks_to_cancel = [safe_task(task) for task in tasks]
+        for task in tasks_to_cancel:
+            task.cancel()
+        await asyncio.gather(*tasks_to_cancel, return_exceptions=True)
+    
+    loop = asyncio.get_event_loop()
+    try:
+        loop.run_until_complete(run_all())
+    except KeyboardInterrupt:
+        # Cancel all tasks on keyboard interrupt, allowing cleanup to run
+        loop.run_until_complete(cancel_and_wait())
+    finally:
+        # Ensure semaphore is released if tasks were cancelled
+        semaphore.release()
+[?2004hroot@6451047e37d2:/app# 

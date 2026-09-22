@@ -1,0 +1,77 @@
+{
+    "results": {
+        "tool": {
+            "name": "pytest",
+            "version": "8.4.1"
+        },
+        "summary": {
+            "tests": 6,
+            "passed": 5,
+            "failed": 1,
+            "skipped": 0,
+            "pending": 0,
+            "other": 0,
+            "start": 1789515999.357446,
+            "stop": 1789515999.53289
+        },
+        "tests": [
+            {
+                "name": "test_outputs.py::test_caffe_version_and_source",
+                "status": "passed",
+                "duration": 0.007126722019165754,
+                "start": 1789515999.4085734,
+                "stop": 1789515999.4159276,
+                "retries": 0,
+                "file_path": "test_outputs.py"
+            },
+            {
+                "name": "test_outputs.py::test_cifar10_model_exists",
+                "status": "passed",
+                "duration": 0.00029178400291129947,
+                "start": 1789515999.4160903,
+                "stop": 1789515999.4164774,
+                "retries": 0,
+                "file_path": "test_outputs.py"
+            },
+            {
+                "name": "test_outputs.py::test_prototxt_files_exist",
+                "status": "passed",
+                "duration": 0.00019608199363574386,
+                "start": 1789515999.4165826,
+                "stop": 1789515999.416859,
+                "retries": 0,
+                "file_path": "test_outputs.py"
+            },
+            {
+                "name": "test_outputs.py::test_cpu_only_training_configured",
+                "status": "passed",
+                "duration": 0.0004616839869413525,
+                "start": 1789515999.416951,
+                "stop": 1789515999.4174922,
+                "retries": 0,
+                "file_path": "test_outputs.py"
+            },
+            {
+                "name": "test_outputs.py::test_training_completed_500_iterations",
+                "status": "passed",
+                "duration": 0.0002477650123182684,
+                "start": 1789515999.4176,
+                "stop": 1789515999.4179184,
+                "retries": 0,
+                "file_path": "test_outputs.py"
+            },
+            {
+                "name": "test_outputs.py::test_model_accuracy_verification",
+                "status": "failed",
+                "raw_status": "call_failed",
+                "duration": 0.10260865098098293,
+                "start": 1789515999.4180074,
+                "stop": 1789515999.5327156,
+                "retries": 0,
+                "file_path": "test_outputs.py",
+                "trace": "def test_model_accuracy_verification():\n        \"\"\"Test that model accuracy meets threshold and training output exists\"\"\"\n        caffe_base = Path(\"/app/caffe\")\n        caffe_bin = _find_caffe_binary()\n        model_file = str(caffe_base / \"examples/cifar10/cifar10_quick_train_test.prototxt\")\n        weights_file = str(\n            caffe_base / \"examples/cifar10/cifar10_quick_iter_500.caffemodel\"\n        )\n        training_output_file = caffe_base / \"training_output.txt\"\n    \n        assert training_output_file.exists(), (\n            f\"Training output file {training_output_file} does not exist\"\n        )\n    \n        with open(training_output_file, \"r\") as f:\n            training_content = f.read()\n    \n        # Extract final accuracy from training (test net evaluation during training)\n        train_accuracy_matches = re.findall(\n            r\"Test net output #0: accuracy = ([\\d.]+)\", training_content\n        )\n        assert train_accuracy_matches, (\n            \"Could not find any accuracy measurements in training output\"\n        )\n        final_training_accuracy = float(train_accuracy_matches[-1])  # Use final accuracy\n    \n        result = subprocess.run(\n            [\n                str(caffe_bin),\n                \"test\",\n                \"-model\",\n                model_file,\n                \"-weights\",\n                weights_file,\n                \"-iterations\",\n                \"100\",\n            ],\n            capture_output=True,\n            text=True,\n            cwd=str(caffe_base),\n        )\n    \n>       assert result.returncode == 0, f\"Caffe test command failed: {result.stderr}\"\nE       AssertionError: Caffe test command failed: I20260915 23:46:39.423453 10863 caffe.cpp:284] Use CPU.\nE         I20260915 23:46:39.424501 10863 net.cpp:294] The NetState phase (1) differed from the phase (0) specified by a rule in layer cifar\nE         I20260915 23:46:39.424523 10863 net.cpp:51] Initializing net from parameters: \nE         name: \"CIFAR10_quick\"\nE         state {\nE           phase: TEST\nE           level: 0\nE           stage: \"\"\nE         }\nE         layer {\nE           name: \"cifar\"\nE           type: \"Data\"\nE           top: \"data\"\nE           top: \"label\"\nE           include {\nE             phase: TEST\nE           }\nE           transform_param {\nE             mean_file: \"examples/cifar10/mean.binaryproto\"\nE           }\nE           data_param {\nE             source: \"examples/cifar10/cifar10_test_lmdb\"\nE             batch_size: 100\nE             backend: LMDB\nE           }\nE         }\nE         layer {\nE           name: \"conv1\"\nE           type: \"Convolution\"\nE           bottom: \"data\"\nE           top: \"conv1\"\nE           param {\nE             lr_mult: 1\nE           }\nE           param {\nE             lr_mult: 2\nE           }\nE           convolution_param {\nE             num_output: 32\nE             pad: 2\nE             kernel_size: 5\nE             stride: 1\nE             weight_filler {\nE               type: \"gaussian\"\nE               std: 0.0001\nE             }\nE             bias_filler {\nE               type: \"constant\"\nE             }\nE           }\nE         }\nE         layer {\nE           name: \"pool1\"\nE           type: \"Pooling\"\nE           bottom: \"conv1\"\nE           top: \"pool1\"\nE           pooling_param {\nE             pool: MAX\nE             kernel_size: 3\nE             stride: 2\nE           }\nE         }\nE         layer {\nE           name: \"relu1\"\nE           type: \"ReLU\"\nE           bottom: \"pool1\"\nE           top: \"pool1\"\nE         }\nE         layer {\nE           name: \"conv2\"\nE           type: \"Convolution\"\nE           bottom: \"pool1\"\nE           top: \"conv2\"\nE           param {\nE             lr_mult: 1\nE           }\nE           param {\nE             lr_mult: 2\nE           }\nE           convolution_param {\nE             num_output: 32\nE             pad: 2\nE             kernel_size: 5\nE             stride: 1\nE             weight_filler {\nE               type: \"gaussian\"\nE               std: 0.01\nE             }\nE             bias_filler {\nE               type: \"constant\"\nE             }\nE           }\nE         }\nE         layer {\nE           name: \"relu2\"\nE           type: \"ReLU\"\nE           bottom: \"conv2\"\nE           top: \"conv2\"\nE         }\nE         layer {\nE           name: \"pool2\"\nE           type: \"Pooling\"\nE           bottom: \"conv2\"\nE           top: \"pool2\"\nE           pooling_param {\nE             pool: AVE\nE             kernel_size: 3\nE             stride: 2\nE           }\nE         }\nE         layer {\nE           name: \"conv3\"\nE           type: \"Convolution\"\nE           bottom: \"pool2\"\nE           top: \"conv3\"\nE           param {\nE             lr_mult: 1\nE           }\nE           param {\nE             lr_mult: 2\nE           }\nE           convolution_param {\nE             num_output: 64\nE             pad: 2\nE             kernel_size: 5\nE             stride: 1\nE             weight_filler {\nE               type: \"gaussian\"\nE               std: 0.01\nE             }\nE             bias_filler {\nE               type: \"constant\"\nE             }\nE           }\nE         }\nE         layer {\nE           name: \"relu3\"\nE           type: \"ReLU\"\nE           bottom: \"conv3\"\nE           top: \"conv3\"\nE         }\nE         layer {\nE           name: \"pool3\"\nE           type: \"Pooling\"\nE           bottom: \"conv3\"\nE           top: \"pool3\"\nE           pooling_param {\nE             pool: AVE\nE             kernel_size: 3\nE             stride: 2\nE           }\nE         }\nE         layer {\nE           name: \"ip1\"\nE           type: \"InnerProduct\"\nE           bottom: \"pool3\"\nE           top: \"ip1\"\nE           param {\nE             lr_mult: 1\nE           }\nE           param {\nE             lr_mult: 2\nE           }\nE           inner_product_param {\nE             num_output: 64\nE             weight_filler {\nE               type: \"gaussian\"\nE               std: 0.1\nE             }\nE             bias_filler {\nE               type: \"constant\"\nE             }\nE           }\nE         }\nE         layer {\nE           name: \"ip2\"\nE           type: \"InnerProduct\"\nE           bottom: \"ip1\"\nE           top: \"ip2\"\nE           param {\nE             lr_mult: 1\nE           }\nE           param {\nE             lr_mult: 2\nE           }\nE           inner_product_param {\nE             num_output: 10\nE             weight_filler {\nE               type: \"gaussian\"\nE               std: 0.1\nE             }\nE             bias_filler {\nE               type: \"constant\"\nE             }\nE           }\nE         }\nE         layer {\nE           name: \"accuracy\"\nE           type: \"Accuracy\"\nE           bottom: \"ip2\"\nE           bottom: \"label\"\nE           top: \"accuracy\"\nE           include {\nE             phase: TEST\nE           }\nE         }\nE         layer {\nE           name: \"loss\"\nE           type: \"SoftmaxWithLoss\"\nE           bottom: \"ip2\"\nE           bottom: \"label\"\nE           top: \"loss\"\nE         }\nE         I20260915 23:46:39.424642 10863 layer_factory.hpp:77] Creating layer cifar\nE         F20260915 23:46:39.424678 10863 db_lmdb.hpp:15] Check failed: mdb_status == 0 (2 vs. 0) No such file or directory\nE         *** Check failure stack trace: ***\nE             @     0x7b138f4af031  google::LogMessage::Fail()\nE             @     0x7b138f4b6463  google::LogMessage::SendToLog()\nE             @     0x7b138f4aeb78  google::LogMessage::Flush()\nE             @     0x7b138f4bb66d  google::LogMessageFatal::~LogMessageFatal()\nE             @     0x7b138f720a13  caffe::db::LMDB::Open()\nE             @     0x7b138f633ad7  caffe::DataLayer<>::DataLayer()\nE             @     0x7b138f633c76  caffe::Creator_DataLayer<>()\nE             @     0x7b138f62b43d  caffe::LayerRegistry<>::CreateLayer()\nE             @     0x7b138f6fca98  caffe::Net<>::Init()\nE             @     0x7b138f6ff265  caffe::Net<>::Net()\nE             @     0x5a151ff183af  test()\nE             @     0x5a151ff14c72  main\nE             @     0x7b138ecfc1ca  (unknown)\nE             @     0x7b138ecfc28b  __libc_start_main\nE             @     0x5a151ff155e5  _start\nE         \nE       assert -6 == 0\nE        +  where -6 = CompletedProcess(args=['/app/caffe/.build_release/tools/caffe.bin', 'test', '-model', '/app/caffe/examples/cifar10/cif...n    @     0x7b138ecfc1ca  (unknown)\\n    @     0x7b138ecfc28b  __libc_start_main\\n    @     0x5a151ff155e5  _start\\n').returncode\n\n/tests/test_outputs.py:197: AssertionError",
+                "message": "The test failed in the call phase due to an assertion error"
+            }
+        ]
+    }
+}

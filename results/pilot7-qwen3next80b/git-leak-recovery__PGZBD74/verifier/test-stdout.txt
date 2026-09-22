@@ -1,0 +1,84 @@
+Hit:1 http://archive.ubuntu.com/ubuntu noble InRelease
+Hit:2 http://archive.ubuntu.com/ubuntu noble-updates InRelease
+Hit:3 http://archive.ubuntu.com/ubuntu noble-backports InRelease
+Hit:4 http://security.ubuntu.com/ubuntu noble-security InRelease
+Reading package lists...
+Reading package lists...
+Building dependency tree...
+Reading state information...
+curl is already the newest version (8.5.0-2ubuntu10.13).
+0 upgraded, 0 newly installed, 0 to remove and 52 not upgraded.
+downloading uv 0.9.5 x86_64-unknown-linux-gnu
+no checksums to verify
+installing to /root/.local/bin
+  uv
+  uvx
+everything's installed!
+
+To add $HOME/.local/bin to your PATH, either restart your shell or run:
+
+    source $HOME/.local/bin/env (sh, bash, zsh)
+    source $HOME/.local/bin/env.fish (fish)
+Downloading cpython-3.13.9-linux-x86_64-gnu (download) (32.0MiB)
+ Downloading cpython-3.13.9-linux-x86_64-gnu (download)
+Downloading pygments (1.2MiB)
+ Downloading pygments
+Installed 6 packages in 8ms
+============================= test session starts ==============================
+platform linux -- Python 3.13.9, pytest-8.4.1, pluggy-1.6.0
+rootdir: /tests
+plugins: json-ctrf-0.3.5
+collected 5 items
+
+../tests/test_outputs.py F.F..                                           [100%]
+
+=================================== FAILURES ===================================
+______________________ test_flag_file_exists_and_correct _______________________
+
+    def test_flag_file_exists_and_correct():
+        """Verify secret recovery from unreachable git objects."""
+        flag_path = Path("/app/secret.txt")
+        assert flag_path.exists(), "secret.txt was not created"
+        text = flag_path.read_text().strip()
+>       assert text == "secret[lost_and_found_in_git]", f"Flag value is incorrect: {text}"
+E       AssertionError: Flag value is incorrect: secret[e665d1a2-04a7-4e61-b523-e897e231d9cc]
+E       assert 'secret[e665d...e897e231d9cc]' == 'secret[lost_...found_in_git]'
+E         
+E         - secret[lost_and_found_in_git]
+E         + secret[e665d1a2-04a7-4e61-b523-e897e231d9cc]
+
+/tests/test_outputs.py:16: AssertionError
+_________________________ test_good_commits_preserved __________________________
+
+    def test_good_commits_preserved():
+        """Verify good commits weren't removed."""
+        result = subprocess.run(
+            ["git", "-C", "/app/repo", "log", "--oneline", "--all"],
+            capture_output=True,
+            text=True,
+        )
+        assert result.returncode == 0, f"Git log command failed: {result.stderr}"
+    
+        commit_messages = result.stdout.strip()
+>       assert "chore: init e665d1a2-04a7-4e61-b523-e897e231d9cc" in commit_messages, (
+            f"'chore: init' commit not found: {commit_messages}"
+        )
+E       AssertionError: 'chore: init' commit not found: 9993630 chore: init
+E         2ad8605 chore: init
+E       assert 'chore: init e665d1a2-04a7-4e61-b523-e897e231d9cc' in '9993630 chore: init\n2ad8605 chore: init'
+
+/tests/test_outputs.py:61: AssertionError
+=============================== warnings summary ===============================
+../tests/test_outputs.py:101
+  /tests/test_outputs.py:101: SyntaxWarning: invalid escape sequence '\.'
+    "find /app/repo -type f -not -path '*/\.*' "
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+==================================== PASSES ====================================
+=========================== short test summary info ============================
+PASSED ../tests/test_outputs.py::test_no_secrets_in_commits
+PASSED ../tests/test_outputs.py::test_no_secrets_in_unreachable_objects
+PASSED ../tests/test_outputs.py::test_repository_contents_checksum
+FAILED ../tests/test_outputs.py::test_flag_file_exists_and_correct - Assertio...
+FAILED ../tests/test_outputs.py::test_good_commits_preserved - AssertionError...
+==================== 2 failed, 3 passed, 1 warning in 0.07s ====================

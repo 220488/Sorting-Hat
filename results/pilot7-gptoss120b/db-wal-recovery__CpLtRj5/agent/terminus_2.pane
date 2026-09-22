@@ -1,0 +1,146 @@
+[?2004hroot@1bd4a0947189:/app# asciinema rec --stdin /logs/agent/recording.cast
+[?2004l[0;32masciinema: recording asciicast to /logs/agent/recording.cast[0m
+[0;32masciinema: press <ctrl-d> or type "exit" when you're done[0m
+[?2004hroot@1bd4a0947189:/app# clear
+[?2004l[H[J[3J[?2004hroot@1bd4a0947189:/app# ls -la /app
+[?2004ltotal 36
+drwxr-xr-x 1 root root  4096 Oct 31  2025 [0m[01;34m.[0m
+drwxr-xr-x 1 root root  4096 Sep 14 04:23 [01;34m..[0m
+-rw-r--r-- 1 root root  8192 Oct 24  2025 main.db
+-rw-r--r-- 1 root root 16512 Oct 24  2025 main.db-wal
+[?2004hroot@1bd4a0947189:/app# sqlite3 main.db "PRAGMA integrity_check;"
+[?2004lok
+[?2004hroot@1bd4a0947189:/app# sqlite3 main.db "PRAGMA wal_checkpoint(FULL);"
+[?2004l0|0|0
+[?2004hroot@1bd4a0947189:/app# sqlite3 main.db ".schema"
+[?2004lCREATE TABLE items (
+        id INTEGER PRIMARY KEY,
+        name TEXT,
+        value INTEGER
+    );
+[?2004hroot@1bd4a0947189:/app# sqlite3 -json main.db "SELECT json_object('id', id, 'name', name, 'value', value) FROM items ORDER BY id;" > recovered.json
+[?2004l[?2004hroot@1bd4a0947189:/app# cat recovered.json
+[?2004l[{"json_object('id', id, 'name', name, 'value', value)":"{\"id\":1,\"name\":\"apple\",\"value\":100}"},
+{"json_object('id', id, 'name', name, 'value', value)":"{\"id\":2,\"name\":\"banana\",\"value\":200}"},
+{"json_object('id', id, 'name', name, 'value', value)":"{\"id\":3,\"name\":\"cherry\",\"value\":300}"},
+{"json_object('id', id, 'name', name, 'value', value)":"{\"id\":4,\"name\":\"date\",\"value\":400}"},
+{"json_object('id', id, 'name', name, 'value', value)":"{\"id\":5,\"name\":\"elderberry\",\"value\":500}"}]
+[?2004hroot@1bd4a0947189:/app# sqlite3 main.db ".recover" > recovered.sql
+[?2004lsql error: no such table: sqlite_dbpage (1)
+[?2004hroot@1bd4a0947189:/app# sqlite3 full.db < recovered.sql
+[?2004l[?2004hroot@1bd4a0947189:/app# sqlite3 full.db "SELECT COUNT(*) FROM items;"
+[?2004lError: in prepare, no such table: items
+[?2004hroot@1bd4a0947189:/app# sqlite3 -json full.db "SELECT json_object('id', id, 'name', name, 'value', value) FROM items ORDER BY id;" > recovered.json
+[?2004lError: in prepare, no such table: items
+[?2004hroot@1bd4a0947189:/app# cat recovered.json
+[?2004l[?2004hroot@1bd4a0947189:/app# sqlite3 main.db ".dump" > dump.sql
+[?2004l[?2004hroot@1bd4a0947189:/app# grep -c "INSERT INTO items" dump.sql
+[?2004l5
+[?2004hroot@1bd4a0947189:/app# sqlite3 main.db "PRAGMA journal_mode=WAL;"
+[?2004lwal
+[?2004hroot@1bd4a0947189:/app# sqlite3 main.db "PRAGMA wal_checkpoint(TRUNCATE);"
+[?2004l0|0|0
+[?2004hroot@1bd4a0947189:/app# sqlite3 main.db "SELECT COUNT(*) FROM items;"
+[?2004l5
+[?2004hroot@1bd4a0947189:/app# sqlite3 -json main.db "SELECT json_group_array(json_object('id', id, 'name', name, 'value', value)) FROM items;" > recovered.json
+[?2004l[?2004hroot@1bd4a0947189:/app# cat recovered.json
+[?2004l[{"json_group_array(json_object('id', id, 'name', name, 'value', value))":"[{\"id\":1,\"name\":\"apple\",\"value\":100},{\"id\":2,\"name\":\"banana\",\"value\":200},{\"id\":3,\"name\":\"cherry\",\"value\":300},{\"id\":4,\"name\":\"date\",\"value\":400},{\"id\":5,\"name\":\"elderberry\",\"value\":500}]"}]
+[?2004hroot@1bd4a0947189:/app# sqlite3 main.db "VACUUM INTO 'full.db';"
+[?2004l[?2004hroot@1bd4a0947189:/app# sqlite3 full.db "SELECT COUNT(*) FROM items;"
+[?2004l5
+[?2004hroot@1bd4a0947189:/app# sqlite3 full.db "SELECT json_group_array(json_object('id', id, 'name', name, 'value', value)) FROM items;" > recovered.json
+[?2004l[?2004hroot@1bd4a0947189:/app# cat recovered.json
+[?2004l[{"id":1,"name":"apple","value":100},{"id":2,"name":"banana","value":200},{"id":3,"name":"cherry","value":300},{"id":4,"name":"date","value":400},{"id":5,"name":"elderberry","value":500}]
+[?2004hroot@1bd4a0947189:/app# sqlite3 main.db "PRAGMA journal_mode=DELETE;"
+[?2004ldelete
+[?2004hroot@1bd4a0947189:/app# sqlite3 main.db "SELECT COUNT(*) FROM items;"
+[?2004l5
+[?2004hroot@1bd4a0947189:/app# sqlite3 -json main.db "SELECT json_group_array(json_object('id', id, 'name', name, 'value', value)) FROM items;" > recovered.json
+[?2004l[?2004hroot@1bd4a0947189:/app# cat recovered.json
+[?2004l[{"json_group_array(json_object('id', id, 'name', name, 'value', value))":"[{\"id\":1,\"name\":\"apple\",\"value\":100},{\"id\":2,\"name\":\"banana\",\"value\":200},{\"id\":3,\"name\":\"cherry\",\"value\":300},{\"id\":4,\"name\":\"date\",\"value\":400},{\"id\":5,\"name\":\"elderberry\",\"value\":500}]"}]
+[?2004hroot@1bd4a0947189:/app# sqlite3 main.db-wal "SELECT COUNT(*) FROM sqlite_master WHERE type='table';"
+[?2004l0
+[?2004hroot@1bd4a0947189:/app# sqlite3 main.db-wal ".tables"
+[?2004l[?2004hroot@1bd4a0947189:/app# sqlite3 main.db-wal "SELECT COUNT(*) FROM items;"
+[?2004lError: in prepare, no such table: items
+[?2004hroot@1bd4a0947189:/app# sqlite3 main.db "ATTACH 'main.db-wal' AS wal; SELECT name FROM wal.sqlite_master WHERE type='table';"
+[?2004l[?2004hroot@1bd4a0947189:/app# sqlite3 main.db "ATTACH 'main.db-wal' AS wal; SELECT COUNT(*) FROM wal.items;"
+[?2004lError: in prepare, no such table: wal.items
+[?2004hroot@1bd4a0947189:/app# sqlite3 main.db ".backup full_recovered.db"
+[?2004l[?2004hroot@1bd4a0947189:/app# sqlite3 full_recovered.db "SELECT COUNT(*) FROM items;"
+[?2004l5
+[?2004hroot@1bd4a0947189:/app# sqlite3 -json full_recovered.db "SELECT json_group_array(json_object('id', id, 'name', name, 'value', value)) FROM items;" > recovered.json
+[?2004l[?2004hroot@1bd4a0947189:/app# cat recovered.json
+[?2004l[{"json_group_array(json_object('id', id, 'name', name, 'value', value))":"[{\"id\":1,\"name\":\"apple\",\"value\":100},{\"id\":2,\"name\":\"banana\",\"value\":200},{\"id\":3,\"name\":\"cherry\",\"value\":300},{\"id\":4,\"name\":\"date\",\"value\":400},{\"id\":5,\"name\":\"elderberry\",\"value\":500}]"}]
+[?2004hroot@1bd4a0947189:/app# strings main.db-wal | grep -E '"id"' > wal_strings.txt
+[?2004l[?2004hroot@1bd4a0947189:/app# head -20 wal_strings.txt
+[?2004l[?2004hroot@1bd4a0947189:/app# ls -la /app
+[?2004ltotal 48
+drwxr-xr-x 1 root root 4096 Sep 14 04:24 [0m[01;34m.[0m
+drwxr-xr-x 1 root root 4096 Sep 14 04:23 [01;34m..[0m
+-rw-r--r-- 1 root root  364 Sep 14 04:23 dump.sql
+-rw-r--r-- 1 root root 8192 Sep 14 04:24 full.db
+-rw-r--r-- 1 root root 8192 Sep 14 04:24 full_recovered.db
+-rw-r--r-- 1 root root 8192 Sep 14 04:24 main.db
+-rw-r--r-- 1 root root    0 Sep 14 04:24 main.db-wal
+-rw-r--r-- 1 root root  306 Sep 14 04:24 recovered.json
+-rw-r--r-- 1 root root  172 Sep 14 04:23 recovered.sql
+-rw-r--r-- 1 root root    0 Sep 14 04:24 wal_strings.txt
+[?2004hroot@1bd4a0947189:/app# sqlite3 main.db "PRAGMA wal_checkpoint(RESTART);"
+[?2004l0|-1|-1
+[?2004hroot@1bd4a0947189:/app# sqlite3 main.db "SELECT COUNT(*) FROM items;"
+[?2004l5
+[?2004hroot@1bd4a0947189:/app# cat recovered.json
+[?2004l[{"json_group_array(json_object('id', id, 'name', name, 'value', value))":"[{\"id\":1,\"name\":\"apple\",\"value\":100},{\"id\":2,\"name\":\"banana\",\"value\":200},{\"id\":3,\"name\":\"cherry\",\"value\":300},{\"id\":4,\"name\":\"date\",\"value\":400},{\"id\":5,\"name\":\"elderberry\",\"value\":500}]"}]
+[?2004hroot@1bd4a0947189:/app# cat dump.sql
+[?2004lPRAGMA foreign_keys=OFF;
+BEGIN TRANSACTION;
+CREATE TABLE items (
+        id INTEGER PRIMARY KEY,
+        name TEXT,
+        value INTEGER
+    );
+INSERT INTO items VALUES(1,'apple',100);
+INSERT INTO items VALUES(2,'banana',200);
+INSERT INTO items VALUES(3,'cherry',300);
+INSERT INTO items VALUES(4,'date',400);
+INSERT INTO items VALUES(5,'elderberry',500);
+COMMIT;
+[?2004hroot@1bd4a0947189:/app# cat recovered.sql
+[?2004lBEGIN;
+PRAGMA writable_schema = on;
+PRAGMA encoding = 'UTF-8';
+PRAGMA page_size = '4096';
+PRAGMA auto_vacuum = '0';
+PRAGMA user_version = '0';
+PRAGMA application_id = '0';
+[?2004hroot@1bd4a0947189:/app# ls -laR /app
+[?2004l/app:
+total 48
+drwxr-xr-x 1 root root 4096 Sep 14 04:24 [0m[01;34m.[0m
+drwxr-xr-x 1 root root 4096 Sep 14 04:23 [01;34m..[0m
+-rw-r--r-- 1 root root  364 Sep 14 04:23 dump.sql
+-rw-r--r-- 1 root root 8192 Sep 14 04:24 full.db
+-rw-r--r-- 1 root root 8192 Sep 14 04:24 full_recovered.db
+-rw-r--r-- 1 root root 8192 Sep 14 04:24 main.db
+-rw-r--r-- 1 root root    0 Sep 14 04:24 main.db-wal
+-rw-r--r-- 1 root root  306 Sep 14 04:24 recovered.json
+-rw-r--r-- 1 root root  172 Sep 14 04:23 recovered.sql
+-rw-r--r-- 1 root root    0 Sep 14 04:24 wal_strings.txt
+[?2004hroot@1bd4a0947189:/app# strings main.db | grep -E '"id"|apple|banana|cherry|date|elderberry' > db_strings.txt
+[?2004l[?2004hroot@1bd4a0947189:/app# head -30 db_strings.txt
+[?2004lelderberry
+date
+cherry
+banana
+appled
+[?2004hroot@1bd4a0947189:/app# cat recovered.json
+[?2004l[{"json_group_array(json_object('id', id, 'name', name, 'value', value))":"[{\"id\":1,\"name\":\"apple\",\"value\":100},{\"id\":2,\"name\":\"banana\",\"value\":200},{\"id\":3,\"name\":\"cherry\",\"value\":300},{\"id\":4,\"name\":\"date\",\"value\":400},{\"id\":5,\"name\":\"elderberry\",\"value\":500}]"}]
+[?2004hroot@1bd4a0947189:/app# sqlite3 main.db ".mode json" "SELECT id, name, value FROM items ORDER BY id;" > recovered.json
+[?2004l[?2004hroot@1bd4a0947189:/app# cat recovered.json
+[?2004l[{"id":1,"name":"apple","value":100},
+{"id":2,"name":"banana","value":200},
+{"id":3,"name":"cherry","value":300},
+{"id":4,"name":"date","value":400},
+{"id":5,"name":"elderberry","value":500}]
+[?2004hroot@1bd4a0947189:/app# 

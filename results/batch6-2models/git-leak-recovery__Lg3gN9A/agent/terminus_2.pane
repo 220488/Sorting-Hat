@@ -1,0 +1,55 @@
+[?2004hroot@eac93ba8207c:/app# asciinema rec --stdin /logs/agent/recording.cast
+[?2004l[0;32masciinema: recording asciicast to /logs/agent/recording.cast[0m
+[0;32masciinema: press <ctrl-d> or type "exit" when you're done[0m
+[?2004hroot@eac93ba8207c:/app# clear
+[?2004l[H[J[3J[?2004hroot@eac93ba8207c:/app# cd /app/repo
+[?2004l[?2004hroot@eac93ba8207c:/app/repo# printf '%s\n' '--- status ---'; git status --short --branch; printf '%s\n' '--- refs ---'; git show-ref; printf '%s\n' '--- reflogs ---'; git reflog --all --date=iso
+[?2004l--- status ---
+## [32mmaster[m
+--- refs ---
+c6d99979c3ef74db39532137fb89516c2d707785 refs/heads/master
+--- reflogs ---
+[?1h=[33mc6d9997[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmaster[m[33m)[m refs/heads/master@{2025-10-28 22:02:30 +0000}: commit: chore: init e665d1a2-04a7-4e61-b523-e897e231d9cc[m
+[33m7a2420e[m refs/heads/master@{2025-10-28 22:02:30 +0000}: reset: moving to HEAD~1[m
+[33m6b4c75c[m refs/heads/master@{2025-10-28 22:02:30 +0000}: commit: feat: add scratch notes[m
+[33m7a2420e[m refs/heads/master@{2025-10-28 22:02:30 +0000}: commit (initial): chore: init e665d1a2-04a7-4e61-b523-e897e231d9cc[m
+[33mc6d9997[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmaster[m[33m)[m HEAD@{2025-10-28 22:02:30 +0000}: commit: chore: init e665d1a2-04a7-4e61-b523-e897e231d9cc[m
+[33m7a2420e[m HEAD@{2025-10-28 22:02:30 +0000}: reset: moving to HEAD~1[m
+[33m6b4c75c[m HEAD@{2025-10-28 22:02:30 +0000}: commit: feat: add scratch notes[m
+[33m7a2420e[m HEAD@{2025-10-28 22:02:30 +0000}: commit (initial): chore: init e665d1a2-04a7-4e61-b523-e897e231d9cc[m
+[K[?1l>[?2004hroot@eac93ba8207c:/app/repo# printf '%s\n' '--- unreachable objects ---'; git fsck --full --no-reflogs --unreachable 2>/dev/null
+[?2004l--- unreachable objects ---
+unreachable tree aa7dfd0c18e6582cdc8959609bc02653870cd96a
+unreachable commit 6b4c75caa9a2aa9a630e16764007b0109b1f5c07
+unreachable blob 52d18a091cd9755bacb8eaccab2882a24b080dc7
+[?2004hroot@eac93ba8207c:/app/repo# printf '%s\n' '--- all object text matching secret format ---'; for o in $(git rev-list --objects --all 2>/dev/null | awk '{print $1}'; git fsck --full --no-reflogs --unreachable 2>/dev/null | awk '$2=="blob"||$2=="commit"||$2=="tree"{print $3}'); do git cat-file -p "$o" 2>/dev/null | grep -oE 'secret\[[^]]*\]' && echo " [object $o]"; done
+[?2004l--- all object text matching secret format ---
+[01;31m[Ksecret[lost_and_found_in_git][m[K
+ [object 52d18a091cd9755bacb8eaccab2882a24b080dc7]
+[?2004hroot@eac93ba8207c:/app/repo# printf '%s\n' 'secret[lost_and_found_in_git]' > /app/secret.txt
+[?2004l[?2004hroot@eac93ba8207c:/app/repo# printf '%s\n' '--- working tree ---'; git status --short; printf '%s\n' '--- history ---'; git log --oneline --decorate --all; printf '%s\n' '--- tracked files ---'; git ls-files
+[?2004l--- working tree ---
+--- history ---
+[?1h=[33mc6d9997[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmaster[m[33m)[m chore: init e665d1a2-04a7-4e61-b523-e897e231d9cc[m
+[33m7a2420e[m chore: init e665d1a2-04a7-4e61-b523-e897e231d9cc[m
+[K[?1l>--- tracked files ---
+README.md
+[?2004hroot@eac93ba8207c:/app/repo# git reflog expire --expire=now --expire-unreachable=now --all && git gc --prune=now --aggressive
+[?2004lEnumerating objects: 6, done.
+Counting objects:  16% (1/6)Counting objects:  33% (2/6)Counting objects:  50% (3/6)Counting objects:  66% (4/6)Counting objects:  83% (5/6)Counting objects: 100% (6/6)Counting objects: 100% (6/6), done.
+Delta compression using up to 4 threads
+Compressing objects:  50% (1/2)Compressing objects: 100% (2/2)Compressing objects: 100% (2/2), done.
+Writing objects:  16% (1/6)Writing objects:  33% (2/6)Writing objects:  50% (3/6)Writing objects:  66% (4/6)Writing objects:  83% (5/6)Writing objects: 100% (6/6)Writing objects: 100% (6/6), done.
+Total 6 (delta 1), reused 0 (delta 0), pack-reused 0
+[?2004hroot@eac93ba8207c:/app/repo# printf '%s\n' '--- final status ---'; git status --short --branch; printf '%s\n' '--- final history ---'; git log --oneline --decorate --all; printf '%s\n' '--- unreachable objects ---'; git fsck --full --no-reflogs --unreachable 2>/dev/null || true; printf '%s\n' '--- secret search in repository ---'; if grep -RIn --exclude-dir=.git -F 'secret[lost_and_found_in_git]' .; then exit 1; fi; if git rev-list --objects --all | cut -d' ' -f1 | while read o; do git cat-file -p "$o" 2>/dev/null; done | grep -F 'secret[lost_and_found_in_git]'; then exit 1; fi; printf '%s\n' 'secret absent from repository'; printf '%s\n' '--- recovered file ---'; cat /app/secret.txt
+[?2004l--- final status ---
+## [32mmaster[m
+--- final history ---
+[?1h=[33mc6d9997[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmaster[m[33m)[m chore: init e665d1a2-04a7-4e61-b523-e897e231d9cc[m
+[33m7a2420e[m chore: init e665d1a2-04a7-4e61-b523-e897e231d9cc[m
+[K[?1l>--- unreachable objects ---
+--- secret search in repository ---
+secret absent from repository
+--- recovered file ---
+secret[lost_and_found_in_git]
+[?2004hroot@eac93ba8207c:/app/repo# 

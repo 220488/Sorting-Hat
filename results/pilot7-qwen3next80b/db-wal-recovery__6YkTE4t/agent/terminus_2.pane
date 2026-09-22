@@ -1,0 +1,59 @@
+[?2004hroot@7e91dac8572d:/app# asciinema rec --stdin /logs/agent/recording.cast
+[?2004l[0;32masciinema: recording asciicast to /logs/agent/recording.cast[0m
+[0;32masciinema: press <ctrl-d> or type "exit" when you're done[0m
+[?2004hroot@7e91dac8572d:/app# clear
+[?2004l[H[J[3J[?2004hroot@7e91dac8572d:/app# ls -la
+[?2004ltotal 36
+drwxr-xr-x 1 root root  4096 Oct 31  2025 [0m[01;34m.[0m
+drwxr-xr-x 1 root root  4096 Sep 14 03:43 [01;34m..[0m
+-rw-r--r-- 1 root root  8192 Oct 24  2025 main.db
+-rw-r--r-- 1 root root 16512 Oct 24  2025 main.db-wal
+[?2004hroot@7e91dac8572d:/app# sqlite3 main.db "PRAGMA wal_checkpoint;"
+[?2004l0|0|0
+[?2004hroot@7e91dac8572d:/app# sqlite3 main.db "SELECT name FROM sqlite_master WHERE type='table';"
+[?2004litems
+[?2004hroot@7e91dac8572d:/app# sqlite3 -json main.db "SELECT json_group_array(json_object('id', id, 'name', name, 'value', value)) FROM (SELECT id, name, value FROM items ORDER BY id);" > /app/recovered.json
+[?2004l[?2004hroot@7e91dac8572d:/app# cat /app/recovered.json
+[?2004l[{"json_group_array(json_object('id', id, 'name', name, 'value', value))":"[{\"id\":1,\"name\":\"apple\",\"value\":100},{\"id\":2,\"name\":\"banana\",\"value\":200},{\"id\":3,\"name\":\"cherry\",\"value\":300},{\"id\":4,\"name\":\"date\",\"value\":400},{\"id\":5,\"name\":\"elderberry\",\"value\":500}]"}]
+[?2004hroot@7e91dac8572d:/app# sqlite3 main.db "SELECT json_group_array(json_object('id', id, 'name', name, 'value', value)) FROM (SELECT id, name, value FROM items ORDER BY id);" | sed 's/\[\{"json_group_array(.*//; s/"\}\]$//' > /app/recovered.json
+[?2004lsed: -e expression #1, char 29: Unmatched \{
+[?2004hroot@7e91dac8572d:/app# cat /app/recovered.json
+[?2004l[?2004hroot@7e91dac8572d:/app# sqlite3 -json main.db "SELECT id, name, value FROM items ORDER BY id;" > /app/recovered.json
+[?2004l[?2004hroot@7e91dac8572d:/app# cat /app/recovered.json
+[?2004l[{"id":1,"name":"apple","value":100},
+{"id":2,"name":"banana","value":200},
+{"id":3,"name":"cherry","value":300},
+{"id":4,"name":"date","value":400},
+{"id":5,"name":"elderberry","value":500}]
+[?2004hroot@7e91dac8572d:/app# sqlite3 main.db "PRAGMA wal_checkpoint(FULL);"
+[?2004l0|0|0
+[?2004hroot@7e91dac8572d:/app# sqlite3 main.db "SELECT COUNT(*) FROM items;"
+[?2004l5
+[?2004hroot@7e91dac8572d:/app# cp main.db main.db.bak
+[?2004l[?2004hroot@7e91dac8572d:/app# cp main.db-wal main.db-wal.bak
+[?2004lcp: cannot stat 'main.db-wal': No such file or directory
+[?2004hroot@7e91dac8572d:/app# rm main.db
+[?2004l[?2004hroot@7e91dac8572d:/app# mv main.db-wal main.db
+[?2004lmv: cannot stat 'main.db-wal': No such file or directory
+[?2004hroot@7e91dac8572d:/app# sqlite3 main.db "SELECT COUNT(*) FROM items;"
+[?2004lError: in prepare, no such table: items
+[?2004hroot@7e91dac8572d:/app# ls -la /app/
+[?2004ltotal 24
+drwxr-xr-x 1 root root 4096 Sep 14 03:44 [0m[01;34m.[0m
+drwxr-xr-x 1 root root 4096 Sep 14 03:43 [01;34m..[0m
+-rw-r--r-- 1 root root    0 Sep 14 03:44 main.db
+-rw-r--r-- 1 root root 8192 Sep 14 03:44 [00;90mmain.db.bak[0m
+-rw-r--r-- 1 root root  192 Sep 14 03:44 recovered.json
+[?2004hroot@7e91dac8572d:/app# cp main.db.bak main.db
+[?2004l[?2004hroot@7e91dac8572d:/app# sqlite3 main.db "SELECT COUNT(*) FROM items;"
+[?2004l5
+[?2004hroot@7e91dac8572d:/app# cat /app/recovered.json
+[?2004l[{"id":1,"name":"apple","value":100},
+{"id":2,"name":"banana","value":200},
+{"id":3,"name":"cherry","value":300},
+{"id":4,"name":"date","value":400},
+{"id":5,"name":"elderberry","value":500}]
+[?2004hroot@7e91dac8572d:/app# echo '[{"id":1,"name":"apple","value":100},{"id":2,"name":"banana","value":200},{"id":3,"name":"cherry","value":300},{"id":4,"name":"date","value":400},{"id":5,"name":"elderberry","value":500}]' > /app/recovered.json
+[?2004l[?2004hroot@7e91dac8572d:/app# cat /app/recovered.json
+[?2004l[{"id":1,"name":"apple","value":100},{"id":2,"name":"banana","value":200},{"id":3,"name":"cherry","value":300},{"id":4,"name":"date","value":400},{"id":5,"name":"elderberry","value":500}]
+[?2004hroot@7e91dac8572d:/app# 

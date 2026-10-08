@@ -23,8 +23,7 @@ Includes a fallback in case of "NA" assignments (mini-swe).
 
 from pathlib import Path
 from harbor.agents.base import BaseAgent
-import importlib
-import inspect
+from sorting_hat.routing import load_route, call_route
 from harbor.environments.base import BaseEnvironment
 from harbor.models.agent.context import AgentContext
 import json
@@ -36,6 +35,7 @@ from datetime import datetime, timezone
 ROUTING_STRATEGIES = {
     "rules_based": "routing_strategy.rules_based:route",
     "llm_classifier": "routing_strategy.llm_classifier:route",
+    "embedding": "routing_strategy.embedding:create_router",
 }
 
 class SortingHatNoRetry(BaseAgent):
@@ -55,14 +55,14 @@ class SortingHatNoRetry(BaseAgent):
                  force_harness: str | None = None,
                  fallback="mini-swe-agent", # single best as fallback
                  harness_kwargs = None,
+                 routing_kwargs = None,
                  **harbor_kwargs
                  ):
         super().__init__(logs_dir=logs_dir,
                          model_name=model_name,
                          **harbor_kwargs)
         self.routing_strategy = routing_strategy
-        routing_strategy_module_path, routing_func = ROUTING_STRATEGIES[routing_strategy].split(":")
-        self.route_func = getattr(importlib.import_module(routing_strategy_module_path), routing_func)
+        self.route_func = load_route(routing_strategy, ROUTING_STRATEGIES, routing_kwargs)
         self.harnesses = set(harnesses)
         self.force_harness = force_harness
         self.fallback= fallback
@@ -90,16 +90,11 @@ class SortingHatNoRetry(BaseAgent):
         # If force harness is defined, use that
         if self.force_harness:
             assigned_harness, matched_rule = self.force_harness, "forced"
+            routing_details = {"reason": "forced"}
         
         # Otherwise call routing strategy, assign harness
         else:
-            try:
-                route_result = self.route_func(instruction)
-                if inspect.isawaitable(route_result):
-                    route_result = await route_result
-                assigned_harness, matched_rule = route_result
-            except Exception:
-                assigned_harness, matched_rule = "NA", "NA"
+            assigned_harness, matched_rule, routing_details = await call_route(self.route_func, instruction)
 
         # Assign fallback if needed
         fallback_required = assigned_harness not in self.harnesses
@@ -108,6 +103,7 @@ class SortingHatNoRetry(BaseAgent):
 
         # Log selected harness
         run_record = {"routing_strategy": self.routing_strategy,
+                    "routing_details": routing_details,
                     "assigned_harness": assigned_harness,
                     "matched_rule": matched_rule,
                     "fallback_used": fallback_required,
